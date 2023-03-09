@@ -1,0 +1,115 @@
+---
+title: "03_MWAS"
+author: "Puvvula"
+date: "2023-03-03"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+pah concentrations - from mom
+```{r}
+covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
+  select(c(1,3:11,23,29,30,32,33)) |>
+  rename(subject_id = "participant_id_mom") |>
+  mutate(across(where(is.character), factor))
+```
+
+mz and retention time - C18 Negative
+```{r}
+feature_table <- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_mom.csv") |>
+  select(-c(3:10))
+```
+
+#transform mz intensities 
+```{r}
+feature_table <- feature_table |>
+  mutate(across(3:last_col(), ~ log10(. + 1))) |>
+  mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
+```
+
+align subject_id with the order from mz feature table
+```{r shuffle FT columns}
+matches <- c(1:2, match(covariates$subject_id, names(feature_table))) 
+feature_table <- feature_table[matches]
+```
+
+check order
+```{r}
+match(names(feature_table)[-c(1:2)], covariates$subject_id)
+```
+
+
+revised MWAS loop
+```{r}
+result_list <- list() # create empty list to store results
+variables <- names(covariates[2:10]) # list of variables to analyze
+
+for (variable in variables) {
+  current_results <- data.frame(matrix(nrow = nrow(feature_table), ncol = 4)) # create a new data frame for each variable
+  names(current_results) <- c("Estimate", "Std. Error", "t value", "Pr(>|t|)")
+  for (i in 1:nrow(feature_table)){
+    metabolite <- unlist(feature_table[i,-c(1:2)]) # store the ith metabolite in new vector
+    current_results[i,] <- summary(lm(metabolite ~ get(variable) + mom_ppbmi + mom_age + pgtob + mom_edu_cat + mom_edu_cat,
+                             data=covariates))$coefficients[2,c(1:4)] # store regression results for ith metabolite
+  }
+  current_results$FDR <- p.adjust(current_results[[4]], method=c("fdr")) # fdr adjustment
+  current_results <- cbind(feature_table[c(1:2)], current_results) # add mz and time
+  current_results$Variable <- variable
+  result_list[[variable]] <- current_results # add current results to list
+}
+
+PAH_MWAS_result <- do.call(rbind, result_list) # combine all results into one data frame
+PAH_MWAS_result<- PAH_MWAS_result |> rename("p_value" = 6) |>
+  mutate(neglog10_fdr = -log10(FDR)) |>
+  mutate(beta_dir = case_when(Estimate > 0 & FDR > 0.05 ~ "positive-non_significant",
+                                     Estimate > 0 & FDR <= 0.05 ~ "positive-significant",
+                                     Estimate < 0 & FDR <= 0.05 ~ "negative-significant",
+                                     Estimate < 0 & FDR > 0.05 ~ "negative-non_significant",
+                                     TRUE ~ NA_character_))
+
+
+write_csv(PAH_MWAS_result, "~/Documents/MWAS_home/pj_results/pah_mom/c18neg/mwas_pah_c18neg_mom.csv")
+```
+
+summary of significant features with FDR 20%
+```{r}
+result_summary<- PAH_MWAS_result %>% 
+  group_by(Variable) %>% 
+  summarize(count = n(), sign_features = sum(FDR < 0.2))|>
+  mutate(fdr_cutoff = -log10(((sign_features-1)/(count-1))*0.2 ))
+
+
+```
+
+Manhattan plot
+```{r}
+ggplot(PAH_MWAS_result, aes(x=mz, y=neglog10_fdr, color=beta_dir)) +
+  geom_point(size=0.5) +
+  scale_x_continuous(name="Mass-to-charge ratio ", labels=scales::comma) +
+  scale_y_continuous(name="-log10(P-value)", labels=scales::comma) +
+  facet_wrap(~Variable, ncol=3, nrow=3, scales="free_y") +
+  theme_bw() +
+  theme(panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        legend.position="bottom", # set legend position to bottom
+        legend.box="horizontal") + 
+  labs(color="Beta direction")+
+  scale_color_manual(values = c("positive-significant" = "blue",
+                                "negative-significant" = "red",
+                                "positive-non_significant" = "grey",
+                                "negative-non_significant" = "grey"))
+
+ggsave("~/Documents/MWAS_home/pj_results/pah_mom/c18neg/manh_plt_PAH_mom.tiff",
+       dpi=300, height = 8, width = 8)
+```
+
+Mummichog export: https://www.metaboanalyst.ca
+```{r Mummichog format}
+PAH_MWAS_result_mummi <- PAH_MWAS_result[c(1,6,5, 2)] # reorder columns
+names(PAH_MWAS_result_mummi)<- c("m.z", "p.value", "t.score", "r.t")
+write.table(PAH_MWAS_result_mummi, "~/Documents/MWAS_home/pj_results/pah_mom/c18neg/PAH_MWAS_result_mummi.txt", sep="\t", row.names=F)
+```
+

@@ -69,8 +69,8 @@ https://hmdb.ca/spectra/ms/search
 ```{r}
 library(xMSannotator)
 
-mom_lc<- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_mom.csv")
-baby_lc<- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_baby.csv")
+mom_c18neg<- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_mom.csv")
+baby_c18neg<- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_baby.csv")
 
 
 
