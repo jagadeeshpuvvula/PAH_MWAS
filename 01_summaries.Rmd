@@ -19,18 +19,19 @@ library(gridExtra)
 survey data
 ```{r}
 dt_survey <- read_sas("~/Documents/MWAS_home/Covariates/analysis_data.sas7bdat") |>
-  clean_names()
+  clean_names() |>
+  mutate_if(is.character, ~na_if(.,"")) |>
+  select_if(~ mean(is.na(.)) < 0.2) |> # drop variables > 20% missing
+  select_if(~ !(is.numeric(.) && all(. == 0)) & mean(. == 0, na.rm = TRUE) < 0.8) |> # drop all variables with zeros
+  mutate_if(is.character, as.factor) |>
+  select(-c(matblood, urine, placenta)) |>
+  mutate(dist_majhw_cat = case_when(
+    dist_majhw == "Less than 500 feet" | dist_majhw == "500 feet to 1/2 mile"~ 1,
+    dist_majhw == "1/2 mile to 1 mile" ~ 2,dist_majhw == "More than 1 mile" ~ 3,
+    is.na(dist_majhw) ~ NA_real_,TRUE ~ NA_real_))  # leve-1: lessthan 0.5 mi., level-2: 0.5-1 mi., level-3: >1 mi.
+  
 
-missing_pct <- dt_survey |>
-  summarise_all(~ (mean(is.na(.) | . == "")) * 100) |>
-  gather(variable, percent_missing)
-
-df_clean <- dt_survey %>% 
-  select(which(missing_pct$percent_missing <= 20)) |>
-  mutate(across(where(is.character), as.factor),
-         across(where(~ all(. %in% c(0, 1))), ~ factor(., levels = c(0, 1))))
-
-skim(df_clean)
+skim(dt_survey)
 
 ```
 
