@@ -1,0 +1,43 @@
+---
+title: "05_pathway_import.Rmd"
+author: "Puvvula"
+date: "2023-03-14"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(purrr)
+```
+
+#import and combine all the mummichog imported files
+```{r}
+# Set the main directory
+main_dir <- "~/Documents/MWAS_home/pj_results/"
+
+# Use list.files() to get a list of all the files matching the pattern
+file_paths <- list.files(main_dir, recursive = TRUE, pattern = "mummichog_pathway_enrichment.csv", full.names = TRUE)
+
+# Use map_dfr() to read in each file, add variables indicating the folder location, and bind the resulting data frames
+combined_df <- map_dfr(file_paths, ~{
+  # Read in the file
+  df <- read_csv(.x)
+  
+  # Add variables indicating the folder location
+  df <- df %>% 
+    mutate(folder_location = str_replace(dirname(.x), "/Users/jpuvvula/Documents/MWAS_home/pj_results/", "")) %>% 
+    separate(folder_location, c("var1", "mom_baby", "pos_neg", "var4", "chemical"), sep = "/") |>
+    select(-c(var1, var4)) |>
+    rename(name = 1)
+  
+  # Return the modified data frame
+  df
+})
+
+# View the combined data frame
+combined_df
+
+write_csv(combined_df, "~/Documents/MWAS_home/pj_results/mummi_import_combined.csv")
+```
+
+

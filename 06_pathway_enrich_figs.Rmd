@@ -1,0 +1,58 @@
+---
+title: "06_pathway_enrich_figs.Rmd"
+author: "Puvvula"
+date: "2023-03-14"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+pathways<- read_csv("~/Documents/MWAS_home/pj_results/mummi_import_combined.csv")
+
+plot.mcg <- pathways |> 
+  mutate(logp = -log10(FET), enrichment = Hits.sig/Expected, 
+         pct_sig_hits = (Hits.sig/`Pathway total`)*100,
+         mom_baby = str_sub(mom_baby, start = 5)) |>
+  mutate(pct_sig_hits_disc = cut(pct_sig_hits, breaks = seq(0, 70, by = 9.9999), 
+                                 labels = c("< 10", "10 - <20", "20 - <30", 
+                                            "30 - <40", "40 - <50", 
+                                            "50 - <60", "60 - 70"))) |>
+  filter(logp > 0.6) |> 
+  filter(`Pathway total` > 1)
+
+#########################################
+my_colors <- colorRampPalette(c("#F8766D", "#7CAE00"))(7)
+
+plot.mcg %>% 
+    ggplot(aes(x=factor(chemical), y = reorder(name, logp))) + 
+    geom_tile(aes(fill = factor(pct_sig_hits_disc)), color = "black") +
+    theme_bw()+
+    scale_color_manual(values = my_colors) +
+    xlab("") +
+    ylab("") +
+    theme_bw() +
+    theme(axis.text=element_text(size=9), 
+          axis.title=element_text(size=9,face="bold"),
+          strip.text = element_text(size=7),
+          legend.text=element_text(size=7),
+          legend.title=element_text(size=8),
+          legend.position="bottom",
+          legend.justification="left",
+          legend.box="horizontal",
+          legend.box.just="center",
+          legend.margin=margin(t=0, r=0, b=0, l=0),
+          panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7.5),
+          axis.text.y = element_text(size = 7.5)) +
+  guides(fill = guide_legend(nrow = 1))+
+  facet_grid(~mom_baby+pos_neg)+
+  labs(fill = "% significant hits in the pathway")
+
+ggsave("~/Documents/MWAS_home/pj_results/pah_pathway.tiff", 
+       width = 10, height = 12, dpi=300)
+```
+

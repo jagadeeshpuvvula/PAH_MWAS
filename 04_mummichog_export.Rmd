@@ -1,0 +1,39 @@
+---
+title: "04_mummichog_export"
+author: "Puvvula"
+date: "2023-03-14"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+
+```
+
+
+#split and create mummichog files for each chemical
+```{r}
+dat<- read_tsv("~/Documents/MWAS_home/pj_results/pah_mom/c18neg/c18neg_mom_mummi.txt")
+
+my_directory <- "~/Documents/MWAS_home/pj_results/pah_mom/c18neg/mummi_split"
+
+#split consolidated data into separate chemicals 
+my_data_list <- split(dat, dat$variable)
+
+# Loop through each data frame in the list
+for (i in seq_along(my_data_list)) {
+  
+  # Clean up the variable name
+  new_name <- gsub("[^[:alnum:]]", "_", as.character(my_data_list[[i]]$variable[1]))
+  
+  # Assign the data frame to a new variable with the cleaned-up name
+  assign(new_name, my_data_list[[i]])
+  
+  # Write the data frame to a text file with the cleaned-up name
+  file_name <- paste0(new_name, ".txt")
+  file_path <- file.path(my_directory, file_name)
+  write.table(get(new_name), file = file_path, sep = "\t", quote = FALSE, row.names = FALSE)
+}
+
+```
+
