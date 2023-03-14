@@ -17,7 +17,16 @@ library(tidyverse)
 ```{r}
 covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
   select(c(1,3:11,23,29,30,32,33)) |>
-  rename(subject_id = "participant_id_mom") |>
+  rename(subject_id = "participant_id_mom", 
+         `1-Hydroxynapthalene` = "m_nap1",
+         `2-Hydroxynapthalene` = "m_nap2",
+         `2-Hydroxyfluorene` = "m_fluo2",
+         `1-Hydroxyphenanthrene` = "m_phen1",
+         `2,3-Hydroxyphenanthrene` = "m_phen23",
+         `4-Hydroxyphenanthrene` = "m_phen4",
+         `9-Hydroxyphenanthrene` = "m_phen9",
+         `1-Hydroxypyrene` = "m_pyr1",
+         `sigma-low-mw-PAH` = "m_lowmwsum") |>
   mutate(across(where(is.character), factor))
 ```
 
@@ -25,7 +34,17 @@ covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
 ```{r}
 covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
   select(c(12:21,23,26,29,30,31,32,33)) |>
-  rename(subject_id = "participant_id_baby") |>
+  mutate_at(vars(2:10), ~log(. + 1)) |>
+  rename(subject_id = "participant_id_baby",
+         `1-Hydroxynapthalene` = "b_nap1",
+         `2-Hydroxynapthalene` = "b_nap2",
+         `2-Hydroxyfluorene` = "b_fluo2",
+         `1-Hydroxyphenanthrene` = "b_phen1",
+         `2,3-Hydroxyphenanthrene` = "b_phen23",
+         `4-Hydroxyphenanthrene` = "b_phen4",
+         `9-Hydroxyphenanthrene` = "b_phen9",
+         `1-Hydroxypyrene` = "b_pyr1",
+         `sigma-low-mw-PAH` = "b_lowmwsum") |>
   mutate(across(where(is.character), factor)) |>
   drop_na()
 ```
@@ -127,7 +146,7 @@ PAH_MWAS_result <- PAH_MWAS_result %>%
     neglog10_pvalue < fdr_cutoff & Estimate < 0 ~ "negative-non_significant"))
 
 
-write_csv(PAH_MWAS_result, "~/Documents/MWAS_home/pj_results/pah_baby/hilic_pos/mwas_pah_hilic_pos_baby.csv")
+write_csv(PAH_MWAS_result, "~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_baby.csv")
 ```
 
 
@@ -147,16 +166,16 @@ ggplot(PAH_MWAS_result, aes(x=mz, y=neglog10_pvalue, color=beta_dir)) +
   scale_color_manual(values = c("positive-significant" = "blue",
                                 "negative-significant" = "red",
                                 "positive-non_significant" = "grey",
-                                "negative-non_significant" = "grey"))
+                                "negative-non_significant" = "grey"))Y
 
-ggsave("~/Documents/MWAS_home/pj_results/pah_baby/hilic_pos/manh_plt_PAH_baby.tiff",
+ggsave("~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_baby.tiff",
        dpi=300, height = 8, width = 8)
 ```
 
 # Mummichog export: https://www.metaboanalyst.ca
 ```{r Mummichog format}
-PAH_MWAS_result_mummi <- PAH_MWAS_result[c(1,6,5, 2,8)] # reorder columns
+PAH_MWAS_result_mummi <- PAH_MWAS_result[c(1,6,5,2,8)] # reorder columns
 names(PAH_MWAS_result_mummi)<- c("m.z", "p.value", "t.score", "r.t", "variable")
-write.table(PAH_MWAS_result_mummi, "~/Documents/MWAS_home/pj_results/pah_baby/hilic_pos/PAH_MWAS_result_mummi.txt", sep="\t", row.names=F)
+write.table(PAH_MWAS_result_mummi, "~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_baby_mummi.txt", sep="\t", row.names=F)
 ```
 

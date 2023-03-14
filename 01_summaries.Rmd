@@ -39,10 +39,26 @@ skim(dt_survey)
 ```{r}
 #Urine PAH concentration (log transformed and creatinine adjusted) + covariates
 mom_pah<- read_csv("~/Documents/MWAS_home/pj_dat/mom_pah.csv") |>
-  clean_names()
+  clean_names()|>
+  mutate_at(vars(3:11), ~log(. + 1))
+
+#Creatinine adjustment
+ur_cr<- read_csv("~/Documents/MWAS_home/pj_dat/ur_creat.csv") |> 
+  select(c(2,3)) |> 
+  rename(group="id", mom_ur_ct = "urine_crt") |>
+  mutate(lg_ur_cr_ng = log(mom_ur_ct*100)) #converted mg/dl -> ng/L and on log scale
+
+pah<- pah |> left_join(ur_cr, by="group")
+
+#PAH concentration / log creatinine (ng/L) to yield PAH in ng/g cr units
+pah<- pah |>
+  mutate_at(vars(3:11), ~ . / lg_ur_cr_ng)
+
+#===============================================================================
 
 baby_pah<- read_csv("~/Documents/MWAS_home/pj_dat/baby_pah.csv") |>
-  clean_names()
+  clean_names()|>
+  mutate_at(vars(13:21), ~log(if_else(is.na(.), 1, .) + 1))
 
 covar <-read_csv("~/Documents/MWAS_home/pj_dat/covar.csv") |>
   clean_names()
