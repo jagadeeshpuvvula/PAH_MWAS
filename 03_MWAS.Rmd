@@ -172,10 +172,4 @@ ggsave("~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_baby.tiff",
        dpi=300, height = 8, width = 8)
 ```
 
-# Mummichog export: https://www.metaboanalyst.ca
-```{r Mummichog format}
-PAH_MWAS_result_mummi <- PAH_MWAS_result[c(1,6,5,2,8)] # reorder columns
-names(PAH_MWAS_result_mummi)<- c("m.z", "p.value", "t.score", "r.t", "variable")
-write.table(PAH_MWAS_result_mummi, "~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_baby_mummi.txt", sep="\t", row.names=F)
-```
 

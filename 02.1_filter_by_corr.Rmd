@@ -1,0 +1,34 @@
+---
+title: "02.1_filter_by_corr"
+author: "Puvvula"
+date: "2023-03-15"
+output: pdf_document
+---
+
+```{r}
+result_list <- list() # create empty list to store results
+variables <- names(covariates[2:10]) # list of variables to analyze
+output_dir <- "~/Documents/MWAS_home/cor_filter" # specify the output folder
+```
+
+#Calculate pair-wise correlation coefficients
+```{r}
+for (variable in variables) {
+  current_results <- data.frame(matrix(nrow = nrow(feature_table), ncol = 3)) # create a new data frame for each variable
+  names(current_results) <- c("Correlation", "p-value", "FDR")
+  for (i in 1:nrow(feature_table)){
+    metabolite <- unlist(feature_table[i,-c(1:2)]) # store the ith metabolite in new vector
+    cor_res <- cor.test(metabolite, covariates[[variable]], method = "spearman") # perform Spearman correlation test
+    current_results[i,1:2] <- cor_res[c("estimate", "p.value")] # store correlation coefficient and p-value
+  }
+  current_results$FDR <- p.adjust(current_results[[2]], method=c("fdr")) # fdr adjustment
+  current_results <- cbind(feature_table[c(1:2)], current_results) # add mz and time
+  current_results$Variable <- variable
+  current_results_filtered <- current_results %>% 
+    filter(Correlation > 0.3 & `p-value` < 0.05) # filter results
+  result_list[[variable]] <- current_results_filtered # add current results to list
+  write.csv(current_results_filtered, paste0(output_dir, "/", variable, ".csv"), 
+            row.names = FALSE) # save results as csv file
+}
+```
+

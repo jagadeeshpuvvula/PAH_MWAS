@@ -14,12 +14,16 @@ library(janitor)
 
 #Take all the MWAS output files from the path and combine the files
 ```{r}
-# Define the path to the directory containing the CSV files
-path <- "~/Documents/MWAS_home/pj_results/"
+# Define the paths to the directories containing the CSV files
+path1 <- "~/Documents/MWAS_home/pj_results/pah_baby"
+path2 <- "~/Documents/MWAS_home/pj_results/pah_baby"
 
-# Get a list of all CSV files in the directory and its subdirectories
-csv_files <- list.files(path = path, pattern = "\\.csv$", 
-                        recursive = TRUE, full.names = TRUE)
+# Get a list of all CSV files in both directories and their subdirectories
+csv_files <- c(list.files(path = path1, pattern = "\\.csv$", 
+                        recursive = TRUE, full.names = TRUE),
+               list.files(path = path2, pattern = "\\.csv$", 
+                        recursive = TRUE, full.names = TRUE))
+
 
 # Create a function to read and process each CSV file
 read_csv_file <- function(file) {
