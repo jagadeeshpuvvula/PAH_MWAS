@@ -7,33 +7,69 @@ output: pdf_document
 
 ```{r}
 library(tidyverse)
-
+library(stringr)
+library(janitor)
 ```
 
 
-#split and create mummichog files for each chemical
+#Take all the MWAS output files from the path and combine the files
 ```{r}
-dat<- read_tsv("~/Documents/MWAS_home/pj_results/pah_mom/c18neg/c18neg_mom_mummi.txt")
+# Define the path to the directory containing the CSV files
+path <- "~/Documents/MWAS_home/pj_results/"
 
-my_directory <- "~/Documents/MWAS_home/pj_results/pah_mom/c18neg/mummi_split"
+# Get a list of all CSV files in the directory and its subdirectories
+csv_files <- list.files(path = path, pattern = "\\.csv$", 
+                        recursive = TRUE, full.names = TRUE)
 
-#split consolidated data into separate chemicals 
-my_data_list <- split(dat, dat$variable)
-
-# Loop through each data frame in the list
-for (i in seq_along(my_data_list)) {
+# Create a function to read and process each CSV file
+read_csv_file <- function(file) {
+  # Read the CSV file
+  df <- read_csv(file)
   
-  # Clean up the variable name
-  new_name <- gsub("[^[:alnum:]]", "_", as.character(my_data_list[[i]]$variable[1]))
+  # Keep only the desired variables
+  df <- df %>% select(1, 6, 5, 2, 8, 12)
   
-  # Assign the data frame to a new variable with the cleaned-up name
-  assign(new_name, my_data_list[[i]])
+  # Create the pos_neg variable
+  pos_neg <- str_remove(basename(file), "\\.csv$")
   
-  # Write the data frame to a text file with the cleaned-up name
-  file_name <- paste0(new_name, ".txt")
-  file_path <- file.path(my_directory, file_name)
-  write.table(get(new_name), file = file_path, sep = "\t", quote = FALSE, row.names = FALSE)
+  # Add the pos_neg variable to the data frame
+  df$pos_neg <- pos_neg
+  
+  return(df)
 }
+
+# Apply the function to each CSV file and combine them into a single data frame
+combined_df <- map_dfr(csv_files, read_csv_file)
+```
+
+# Filter significant features from the MWAS loop
+```{r}
+filtered_df <- combined_df %>% 
+  filter(beta_dir %in% c("positive-significant", "negative-significant"))
+```
+
+# Create summary table - by chemical, m/z-feature, mom_baby, and pos_neg
+```{r}
+summary_table <- filtered_df %>% 
+  group_by(Variable, pos_neg, beta_dir) %>% 
+  summarize(n = n()) %>% 
+  pivot_wider(names_from = c(pos_neg, beta_dir), values_from = n) %>% 
+  adorn_totals("row") %>% 
+  adorn_totals("col")
+
+# Save summary table
+write_csv(summary_table, "~/Documents/MWAS_home/pj_results/sign_features_summary.csv")
+```
+
+# Split the data frame by Variable and pos_neg and export as text files
+```{r}
+export_folder <- "~/Documents/MWAS_home/pj_results/mummi_export"
+filtered_df %>% split(list(.$Variable, .$pos_neg)) %>% 
+  walk(~{
+    file_name <- paste0(.$Variable[1], "_", .$pos_neg[1])
+    df_to_write <- select(.x, 1:4)
+    write_tsv(df_to_write, file.path(export_folder, paste0(file_name, ".txt")))
+  })
 
 ```
 
