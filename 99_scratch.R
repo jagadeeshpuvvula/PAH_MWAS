@@ -7,3 +7,5 @@ res<- read_csv("~/Documents/MWAS_home/pj_results/pah_mom/c18neg/c18neg_mom.csv")
 
 filtered_res <- res %>% 
   inner_join(dat, by = c("mz", "time"))
+
+#============================================================================

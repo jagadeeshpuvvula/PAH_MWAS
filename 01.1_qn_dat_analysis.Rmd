@@ -1,0 +1,21 @@
+---
+title: "01.1_qn_dat_analysis"
+author: "Puvvula"
+date: "2023-03-16"
+output: pdf_document
+---
+
+```{r}
+qn_dat<- read_csv("~/Documents/MWAS_home/pj_dat/qn_dat.csv")
+
+
+
+mom_pah_raw<- read_sas("/Users/jpuvvula/Documents/MWAS_home/PAH_update/pahmetabolitewide3.sas7bdat") |>
+  select(c(1,2,6,7,9,13,14,16,20,21,23,27,28,30,34,35,37,41,42,44,48,49,51,55,56,58))|>
+  clean_names() |>
+  rename(creat_mg_dl="creatinine", subject_id="participant_id")|>
+  select(subject_id, fluo2concentrationcr, nap1concentrationcr, nap2concentrationcr,
+         phen1concentrationcr, phen4concentrationcr, phen9concentrationcr, 
+         phen23concentrationcr, pyr1concentrationcr)
+```
+

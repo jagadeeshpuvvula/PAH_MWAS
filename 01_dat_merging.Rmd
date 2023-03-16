@@ -1,0 +1,110 @@
+---
+title: "01_summaries"
+author: "Puvvula"
+date: "2023-03-02"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(haven)
+library(skimr)
+library(readr)
+library(reshape2)
+library(kableExtra)
+library(gridExtra)
+```
+
+survey data
+```{r}
+dt_survey <- read_sas("~/Documents/MWAS_home/Covariates/analysis_data.sas7bdat") |>
+  clean_names() |>
+  mutate_if(is.character, ~na_if(.,"")) |>
+  select_if(~ mean(is.na(.)) < 0.2) |> # drop variables > 20% missing
+  select_if(~ !(is.numeric(.) && all(. == 0)) & mean(. == 0, na.rm = TRUE) < 0.8) |> # drop all variables with zeros
+  mutate(dist_majhw_cat = case_when(
+    dist_majhw == "Less than 500 feet" | dist_majhw == "500 feet to 1/2 mile" | 
+      dist_majhw == "1/2 mile to 1 mile"~ "lt_1mile", 
+    dist_majhw == "More than 1 mile" ~ "gt_1mile"))|>
+    mutate(hh_inc_cat = case_when(
+    hh_inc == "<$20,000" | hh_inc == "$20,000-$39,999"~ "bel_median", 
+    hh_inc == "$40,000-$59,999" | hh_inc == "$60,000-$79,999" | 
+      hh_inc == "$80,000-$99,999" | hh_inc == ">$100,000" ~ "abv_median"))|> 
+  # Cincinnati median hh income for 2021 = $45,235 (from census.gov)
+  mutate(stoveuse_cat = case_when(
+    stoveuse == "Less than 1 hour" |stoveuse == "1-2 hours" | stoveuse == "3-4 hours"~ "lt_4hr", 
+    stoveuse == "5 or more hours" ~ "gt_4hr"))|>
+  mutate(stovetype = str_remove(stovetype, " stove"))|>
+  mutate(stove = paste(stovetype, stoveuse_cat, sep = "_")) |>
+  select(participant_id, hh_inc_cat, stove, bbquse, dist_majhw_cat, regexer) |>
+  mutate_all(factor) |>
+  rename(group="participant_id")
+
+skim(dt_survey[2:6])
+
+write_csv(dt_survey, "~/Documents/MWAS_home/pj_dat/qn_dat.csv")
+
+```
+
+
+```{r}
+#MOM - Urine PAH concentration (log transformed and creatinine adjusted) + covariates
+# from aimin's dataset: 
+mom_pah_raw<- read_sas("/Users/jpuvvula/Documents/MWAS_home/PAH_update/pahmetabolitewide3.sas7bdat") |>
+  select(c(1,2,6,7,9,13,14,16,20,21,23,27,28,30,34,35,37,41,42,44,48,49,51,55,56,58))|>
+  clean_names() |>
+  rename(creat_mg_dl="creatinine", group="participant_id")
+
+#standardized and creatinine adjusted values
+#numeric sum of LMWT PAHs: DOI: 10.1097/EE9.0000000000000102
+mom_pah<- mom_pah_raw |>
+  select(group, log_fluo2concentrationcr, log_nap1concentrationcr, log_nap2concentrationcr,
+         log_phen1concentrationcr, log_phen4concentrationcr, log_phen9concentrationcr, 
+         log_phen23concentrationcr, log_pyr1concentrationcr)|>
+  rename(fluo2 = log_fluo2concentrationcr,
+         nap1 = log_nap1concentrationcr,
+         nap2 = log_nap2concentrationcr,
+         phen1 = log_phen1concentrationcr,
+         phen4 = log_phen4concentrationcr,
+         phen9 = log_phen9concentrationcr,
+         phen23 = log_phen23concentrationcr,
+         pyr1 = log_pyr1concentrationcr)|>
+  mutate(sigma_lmwt_pah=fluo2+nap1+nap2+phen1+phen4+phen9+phen23)
+
+write_csv(mom_pah, "/Users/jpuvvula/Documents/MWAS_home/pj_dat/mom_pah.csv")
+#===============================================================================
+
+#add mom baby link IDs covariates
+ids<- read_csv("~/Documents/MWAS_home/mom_baby_match.csv")
+
+dt_survey <- dt_survey |> left_join(ids, by="group") |>
+  filter(!is.na(participant_id_baby) | !is.na(participant_id_mom))
+
+#join covariate data
+covar <-read_csv("~/Documents/MWAS_home/pj_dat/covar.csv") |>
+  clean_names() |>
+  mutate_at(vars(11:15), as.numeric)|>
+  select(-c(1,7,8,9,11))
+
+dt_cov <- dt_survey |> left_join(covar, by="group")
+
+#imputing missing covariates
+dt_cov<- dt_cov |>
+  mutate(mom_edu_cat = if_else(mom_edu == "Bachelor's degree" | mom_edu == "Master's degree or above", "bach-or-abv", "lt-bach")) |>
+  mutate(mom_edu_cat = if_else(is.na(mari_st), "lt-bach", mom_edu_cat)) |>
+  mutate(mari_st = if_else(mari_st == "Married or living with a partner", "married", "not_married")) |>
+  mutate(race_cat = if_else(mom_race == "Non-Hispanic White", "white", "non-white")) |> 
+  mutate(mom_age = if_else(is.na(mom_age), median(mom_age, na.rm = TRUE), mom_age)) |>
+  mutate(mom_ppbmi = if_else(is.na(mom_ppbmi), median(mom_ppbmi, na.rm = TRUE), mom_ppbmi)) |>
+  mutate(totpg = if_else(is.na(totpg), median(totpg, na.rm = TRUE), totpg)) |>
+  select(-c(mom_edu, mom_race, regexer))
+
+# join covariates and pah
+dat<- left_join(mom_pah, dt_cov, by="group")|>
+  filter(!is.na(participant_id_baby) | !is.na(participant_id_mom))
+
+write_csv(dat, "~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv")
+```
+
+
