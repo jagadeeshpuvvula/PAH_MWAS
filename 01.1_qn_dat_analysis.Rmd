@@ -6,16 +6,109 @@ output: pdf_document
 ---
 
 ```{r}
-qn_dat<- read_csv("~/Documents/MWAS_home/pj_dat/qn_dat.csv")
+#questionniare data
+qn_dat<- read_csv("~/Documents/MWAS_home/pj_dat/qn_dat.csv")|>
+  mutate(stove = replace(stove, stove %in% c("NA_NA", "NA_lt_4hr"), NA))|>
+  select(-regexer)
 
-
-
+#creatinine adjusted values.
 mom_pah_raw<- read_sas("/Users/jpuvvula/Documents/MWAS_home/PAH_update/pahmetabolitewide3.sas7bdat") |>
   select(c(1,2,6,7,9,13,14,16,20,21,23,27,28,30,34,35,37,41,42,44,48,49,51,55,56,58))|>
   clean_names() |>
-  rename(creat_mg_dl="creatinine", subject_id="participant_id")|>
-  select(subject_id, fluo2concentrationcr, nap1concentrationcr, nap2concentrationcr,
+  rename(creat_mg_dl="creatinine", group="participant_id")|>
+  select(group, fluo2concentrationcr, nap1concentrationcr, nap2concentrationcr,
          phen1concentrationcr, phen4concentrationcr, phen9concentrationcr, 
-         phen23concentrationcr, pyr1concentrationcr)
+         phen23concentrationcr, pyr1concentrationcr)|>
+  rename_with(~str_sub(., end = -16), ends_with("concentrationcr"))|>
+  mutate(sigma_lmwt_pah=fluo2+nap1+nap2+phen1+phen4+phen9+phen23)
+
+summ<- mom_pah_raw |>
+  pivot_longer(!c(group), names_to = "chemical", values_to = "conc")|>
+  group_by(chemical) |>
+  summarize(median_conc = round(median(conc),2),
+            percentile_25 = round(quantile(conc, 0.25),2),
+            percentile_75 = round(quantile(conc, 0.75),2))
+```
+
+```{r}
+#creatinine adjusted and log transformed values
+dat<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
+  select(c(1,4:11,19:25)) |>
+  mutate(stove = replace(stove, stove %in% c("NA_NA", "NA_lt_4hr"), NA))|>
+  mutate(stove = case_when(
+    grepl("Gas", stove, ignore.case = TRUE) ~ "Gas",
+    grepl("Electric", stove, ignore.case = TRUE) ~ "Electric",
+    is.na(stove) ~ NA_character_,TRUE ~ stove)) |>
+  rename(`1-Hydroxynapthalene` = "nap1",
+         `2-Hydroxynapthalene` = "nap2",
+         `2-Hydroxyfluorene` = "fluo2",
+         `1-Hydroxyphenanthrene` = "phen1",
+         `2,3-Hydroxyphenanthrene` = "phen23",
+         `4-Hydroxyphenanthrene` = "phen4",
+         `9-Hydroxyphenanthrene` = "phen9",
+         `1-Hydroxypyrene` = "pyr1")|>
+  pivot_longer(!c(1,10:16), names_to = "chemical", values_to = "conc")
+
+```
+
+```{r}
+library(ggplot2)
+library(cowplot)
+library(ggpubr)
+
+race <- ggplot(dat, aes(race_cat, conc)) +
+  geom_boxplot(width=0.5) +
+  coord_flip() +
+  theme_bw() +
+  facet_grid(chemical ~ ., scales = "free_x")+
+  labs(x = NULL, y = NULL, title = "Race")+
+  theme(strip.text = element_blank(),
+        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
+
+hh_inc_cat <- ggplot(dat, aes(hh_inc_cat, conc)) +
+  geom_boxplot(width=0.5) +
+  coord_flip() +
+  theme_bw() +
+  facet_grid(chemical ~ ., scales = "free_x")+
+  labs(x = NULL, y = NULL, title = "Household income")+
+  theme(strip.text = element_blank(),
+        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
+
+
+bbquse <- ggplot(dat, aes(bbquse, conc)) +
+  geom_boxplot(width=0.5) +
+  coord_flip() +
+  theme_bw() +
+  facet_grid(chemical ~ ., scales = "free_x")+
+  labs(x = NULL, y = NULL, title = "Barbeque")+
+  theme(strip.text = element_blank(),
+        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
+
+stove <- ggplot(dat, aes(stove, conc)) +
+  geom_boxplot(width=0.5) +
+  coord_flip() +
+  theme_bw() +
+  facet_grid(chemical ~ ., scales = "free_x") +
+  labs(x = NULL, y = NULL, title = "Stove use")+
+  theme(strip.text = element_blank(),
+        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
+
+dist_majhw_cat <- ggplot(dat, aes(dist_majhw_cat, conc)) +
+  geom_boxplot(width=0.5) +
+  coord_flip() +
+  theme_bw() +
+  facet_grid(chemical ~ ., scales = "free_x") +
+  labs(x = NULL, y = NULL, title = "Distance - Highway")+
+  theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4),
+        strip.text = element_text(size=5))
+  
+
+
+
+plot_grid(race, hh_inc_cat,bbquse, stove, dist_majhw_cat,rel_heights = c(1,1, 1, 1, 1),
+          axis = "tb", nrow=1)
+ggsave("~/Documents/MWAS_home/summary.tiff",
+       dpi=300, width = 10, height = 8)
+
 ```
 

@@ -26,7 +26,7 @@ covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
          `4-Hydroxyphenanthrene` = "phen4",
          `9-Hydroxyphenanthrene` = "phen9",
          `1-Hydroxypyrene` = "pyr1",
-         `sigma-low-mw-PAH` = "sigma_lmwt_pah") |>
+         `sigma-LMWT-PAH` = "sigma_lmwt_pah") |>
   mutate(across(where(is.character), factor))
 ```
 
@@ -43,7 +43,7 @@ covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
          `4-Hydroxyphenanthrene` = "phen4",
          `9-Hydroxyphenanthrene` = "phen9",
          `1-Hydroxypyrene` = "pyr1",
-         `sigma-low-mw-PAH` = "sigma_lmwt_pah") |>
+         `sigma-LMWT-PAH` = "sigma_lmwt_pah") |>
   mutate(across(where(is.character), factor)) |>
   drop_na()
 ```
@@ -55,36 +55,37 @@ covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
 #mz and retention time - MOM - C18 Negative
 ```{r}
 feature_table <- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_mom.csv") |>
-  select(-c(3:10))
+  select(-c(3:10))|>
+  mutate(across(3:last_col(), ~ log10(. + 1))) |>
+  mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
 ```
 
 #mz and retention time - MOM - hilic positive
 ```{r}
 feature_table <- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_hilicpos_mom.csv") |>
-  select(-c(3:10))
+  select(-c(3:10))|>
+  mutate(across(3:last_col(), ~ log10(. + 1))) |>
+  mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
 ```
 
 #mz and retention time - BABY - C18 Negative
 ```{r}
 feature_table <- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_baby.csv") |>
-  select(-c(3:10))
+  select(-c(3:10))|>
+  mutate(across(3:last_col(), ~ log10(. + 1))) |>
+  mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
 ```
 
 #mz and retention time - BABY - hilic positive
 ```{r}
 feature_table <- read_csv("~/Documents/MWAS_home/pj_dat/lc_ms_hilicpos_baby.csv") |>
-  select(-c(3:10))
+  select(-c(3:10))|>
+  mutate(across(3:last_col(), ~ log10(. + 1))) |>
+  mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
 ```
 
 
 #===============================================================================
-
-#transform mz intensities 
-```{r}
-feature_table <- feature_table |>
-  mutate(across(3:last_col(), ~ log10(. + 1))) |>
-  mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
-```
 
 #align subject_id with the order from mz feature table
 ```{r shuffle FT columns}
@@ -109,7 +110,7 @@ for (variable in variables) {
   names(current_results) <- c("Estimate", "Std. Error", "t value", "Pr(>|t|)")
   for (i in 1:nrow(feature_table)){
     metabolite <- unlist(feature_table[i,-c(1:2)]) # store the ith metabolite in new vector
-    current_results[i,] <- summary(lm(metabolite ~ get(variable) + mom_ppbmi + mom_age + pgtob + mom_edu_cat + mom_edu_cat + totpg + sex,
+    current_results[i,] <- summary(lm(metabolite ~ get(variable) + mom_ppbmi + mom_age + pgtob + mom_edu_cat + race_cat + totpg + sex,
                              data=covariates))$coefficients[2,c(1:4)] # store regression results for ith metabolite
   }
   current_results$FDR <- p.adjust(current_results[[4]], method=c("fdr")) # fdr adjustment
@@ -144,8 +145,10 @@ PAH_MWAS_result <- PAH_MWAS_result %>%
     neglog10_pvalue < fdr_cutoff & Estimate > 0 ~ "positive-non_significant",
     neglog10_pvalue < fdr_cutoff & Estimate < 0 ~ "negative-non_significant"))
 
+PAH_MWAS_export<- PAH_MWAS_result |>
+  filter(beta_dir == "positive-significant" | beta_dir == "negative-significant")
 
-write_csv(PAH_MWAS_result, "~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_baby.csv")
+write_csv(PAH_MWAS_export, "~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_mom.csv")
 ```
 
 
@@ -155,7 +158,10 @@ ggplot(PAH_MWAS_result, aes(x=mz, y=neglog10_pvalue, color=beta_dir)) +
   geom_point(size=0.5) +
   scale_x_continuous(name="Mass-to-charge ratio ", labels=scales::comma) +
   scale_y_continuous(name="-log10(P-value)", labels=scales::comma) +
-  facet_wrap(~Variable, ncol=3, nrow=3, scales="free_y") +
+  facet_wrap(~ factor(Variable, levels=c("1-Hydroxynapthalene", "2-Hydroxynapthalene", "2-Hydroxyfluorene",
+                                 "1-Hydroxyphenanthrene", "2,3-Hydroxyphenanthrene", "4-Hydroxyphenanthrene",
+                                 "9-Hydroxyphenanthrene", "sigma-LMWT-PAH", "1-Hydroxypyrene")),
+             ncol=3, nrow=3, scales="free_y") +
   theme_bw() +
   theme(panel.grid.major=element_blank(),
         panel.grid.minor=element_blank(),
@@ -167,7 +173,7 @@ ggplot(PAH_MWAS_result, aes(x=mz, y=neglog10_pvalue, color=beta_dir)) +
                                 "positive-non_significant" = "grey",
                                 "negative-non_significant" = "grey"))
 
-ggsave("~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_baby.tiff",
+ggsave("~/Documents/MWAS_home/pj_results/pah_baby/c18neg/c18neg_mom.tiff",
        dpi=300, height = 8, width = 8)
 ```
 

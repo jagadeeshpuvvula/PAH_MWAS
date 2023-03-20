@@ -57,6 +57,7 @@ mom_pah_raw<- read_sas("/Users/jpuvvula/Documents/MWAS_home/PAH_update/pahmetabo
   rename(creat_mg_dl="creatinine", group="participant_id")
 
 #standardized and creatinine adjusted values
+#cr_adj = (urine_conc / urine_creat) * 100 (unit ng/g creatinine)
 #numeric sum of LMWT PAHs: DOI: 10.1097/EE9.0000000000000102
 mom_pah<- mom_pah_raw |>
   select(group, log_fluo2concentrationcr, log_nap1concentrationcr, log_nap2concentrationcr,
