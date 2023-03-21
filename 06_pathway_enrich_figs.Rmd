@@ -10,49 +10,69 @@ library(tidyverse)
 ```
 
 ```{r}
-pathways<- read_csv("~/Documents/MWAS_home/pj_results/mummi_import_combined.csv")
+pathways<- read_csv("~/Documents/MWAS_home/pj_results/mummi_import_combined.csv") |>
+  unite(col= "fact_new", mom_baby, pos_neg, sep = "-")
 
 plot.mcg <- pathways |> 
+  filter(FET < 0.05) |>
   mutate(logp = -log10(FET), enrichment = Hits.sig/Expected, 
-         pct_sig_hits = (Hits.sig/`Pathway total`)*100,
-         mom_baby = str_sub(mom_baby, start = 5)) |>
-  mutate(pct_sig_hits_disc = cut(pct_sig_hits, breaks = seq(0, 70, by = 9.9999), 
-                                 labels = c("< 10", "10 - <20", "20 - <30", 
-                                            "30 - <40", "40 - <50", 
-                                            "50 - <60", "60 - 70"))) |>
-  filter(logp > 0.6) |> 
+         pct_sig_hits = (Hits.sig/`Pathway total`)*100) |>
+  mutate(pct_sig_hits_disc = cut(pct_sig_hits, breaks = seq(0, 90, by = 15), 
+                                 labels = c("< 15", "15 - <30", "30 - <45", 
+                                            "45 - <60", "60 - <75", "75 - <90"))) |>
   filter(`Pathway total` > 1)
 
 #########################################
-my_colors <- colorRampPalette(c("#F8766D", "#7CAE00"))(7)
+my_colors <- colorRampPalette(c("#F8766D", "#7CAE00"))(6)
 
-plot.mcg %>% 
-    ggplot(aes(x=factor(chemical), y = reorder(name, logp))) + 
-    geom_tile(aes(fill = factor(pct_sig_hits_disc)), color = "black") +
-    theme_bw()+
-    scale_color_manual(values = my_colors) +
-    xlab("") +
-    ylab("") +
-    theme_bw() +
-    theme(axis.text=element_text(size=9), 
-          axis.title=element_text(size=9,face="bold"),
-          strip.text = element_text(size=7),
-          legend.text=element_text(size=7),
-          legend.title=element_text(size=8),
-          legend.position="bottom",
-          legend.justification="left",
-          legend.box="horizontal",
-          legend.box.just="center",
-          legend.margin=margin(t=0, r=0, b=0, l=0),
-          panel.grid.minor = element_blank(),
-          panel.grid.major = element_blank(),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7.5),
-          axis.text.y = element_text(size = 7.5)) +
+# Create a new column with the cluster labels
+plot.mcg$metabolism_cluster <- ifelse(grepl("metabolism", plot.mcg$name, ignore.case = TRUE), "metabolism",
+                                      ifelse(grepl("biosynthesis", plot.mcg$name, ignore.case = TRUE),
+                                             "biosynthesis",
+                                             ifelse(grepl("oxidation", plot.mcg$name, ignore.case = TRUE),
+                                                    "oxidation", 
+                                                    ifelse(grepl("degradation", plot.mcg$name, ignore.case = TRUE),
+                                                           "degradation","na"))))
+
+
+# Reorder y-axis based on the cluster labels
+plot.mcg |>
+  ggplot(aes(x = factor(chemical, levels = c("1-Hydroxynapthalene", "2-Hydroxynapthalene", "2-Hydroxyfluorene",
+                                              "1-Hydroxyphenanthrene", "2,3-Hydroxyphenanthrene",
+                                             "4-Hydroxyphenanthrene","9-Hydroxyphenanthrene", 
+                                             "sigma-LMWT-PAH", "1-Hydroxypyrene")), 
+             y = name)) + 
+  geom_tile(aes(fill = factor(pct_sig_hits_disc)), color = "black") +
+  scale_color_manual(values = my_colors) +
+  xlab("") +
+  ylab("") +
+  theme_bw() +
+  theme(axis.text=element_text(size=10), 
+        axis.title=element_text(size=10,face="bold"),
+        strip.text = element_text(size=10),
+        legend.text=element_text(size=10),
+        legend.title=element_text(size=10),
+        legend.position="bottom",
+        legend.justification="right",
+        legend.box="horizontal",
+        legend.box.just="center",
+        legend.margin=margin(t=0.1, r=0.1, b=2, l=0.1),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.text.x = element_text(angle = 40, hjust = 1, vjust = 1, size = 10),
+        axis.text.y = element_text(size = 10), 
+        panel.spacing.x=unit(0.8, "lines"),
+        panel.spacing.y=unit(0.02, "lines"),
+        strip.text.y = element_blank())+
   guides(fill = guide_legend(nrow = 1))+
-  facet_grid(~mom_baby+pos_neg)+
+  facet_grid(factor(metabolism_cluster, levels = c("metabolism", "oxidation",
+                                                   "degradation", "biosynthesis", "na"))
+             ~ fact_new, scales = "free_y", 
+             switch = "y", space = "free_y")+
   labs(fill = "% significant hits in the pathway")
 
 ggsave("~/Documents/MWAS_home/pj_results/pah_pathway.tiff", 
-       width = 10, height = 12, dpi=300)
+       width = 10, height = 8, dpi=300)
 ```
 

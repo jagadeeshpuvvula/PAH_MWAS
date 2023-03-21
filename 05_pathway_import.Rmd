@@ -13,7 +13,7 @@ library(purrr)
 #import and combine all the mummichog imported files
 ```{r}
 # Set the main directory
-main_dir <- "~/Documents/MWAS_home/pj_results/"
+main_dir <- "~/Documents/MWAS_home/pj_results/mummi_import"
 
 # Use list.files() to get a list of all the files matching the pattern
 file_paths <- list.files(main_dir, recursive = TRUE, pattern = "mummichog_pathway_enrichment.csv", full.names = TRUE)
@@ -25,9 +25,13 @@ combined_df <- map_dfr(file_paths, ~{
   
   # Add variables indicating the folder location
   df <- df %>% 
-    mutate(folder_location = str_replace(dirname(.x), "/Users/jpuvvula/Documents/MWAS_home/pj_results/", "")) %>% 
-    separate(folder_location, c("var1", "mom_baby", "pos_neg", "var4", "chemical"), sep = "/") |>
-    select(-c(var1, var4)) |>
+    mutate(folder_location = str_replace(dirname(.x), 
+                                         "/Users/jpuvvula/Documents/MWAS_home/pj_results/mummi_import", "")) %>% 
+    separate(folder_location, c("var1", "folder_name"), sep = "/") |>
+    mutate(pos_neg = ifelse(str_detect(folder_name, "c18neg"), "neg", "pos"), 
+           mom_baby = ifelse(str_detect(folder_name, "baby"), "baby", "mom")) |>
+    separate(folder_name, c("chemical"), sep = "_") |>
+    select(-c(var1)) |>
     rename(name = 1)
   
   # Return the modified data frame
