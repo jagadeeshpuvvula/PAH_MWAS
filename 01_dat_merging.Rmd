@@ -37,13 +37,29 @@ dt_survey <- read_sas("~/Documents/MWAS_home/Covariates/analysis_data.sas7bdat")
     stoveuse == "5 or more hours" ~ "gt_4hr"))|>
   mutate(stovetype = str_remove(stovetype, " stove"))|>
   mutate(stove = paste(stovetype, stoveuse_cat, sep = "_")) |>
-  select(participant_id, hh_inc_cat, stove, bbquse, dist_majhw_cat, regexer) |>
+  select(participant_id, mom_age,mom_edu, hh_inc_cat, mom_race, stove, bbquse, dist_majhw_cat, pgwt_lb) |>
   mutate_all(factor) |>
   rename(group="participant_id")
 
-skim(dt_survey[2:6])
+skim(dt_survey[2:9])
 
 write_csv(dt_survey, "~/Documents/MWAS_home/pj_dat/qn_dat.csv")
+
+
+filtered_dt_survey <- dt_survey %>%
+  filter(group %in% mom_pah_raw$group)
+  
+filt_summ<- filtered_dt_survey |>  
+  summarise(across(everything(), list(missing_count = ~ sum(is.na(.)),
+                                      missing_percent = ~ mean(is.na(.)) * 100))) |>
+  t() |> 
+  as.data.frame() %>%
+  rownames_to_column(var = "variable") |>
+  rename_all(~gsub(".+\\.", "", .)) %>%
+  pivot_longer(cols = -variable,
+               names_to = "statistic",
+               values_to = "value")
+  
 
 ```
 
