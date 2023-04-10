@@ -78,9 +78,77 @@ dat<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
   mutate(stove = if_else(is.na(stove), names(which.max(table(stove))), stove)) |>
   mutate(bbquse = if_else(is.na(bbquse), names(which.max(table(bbquse))), bbquse)) |>
   mutate(dist_majhw_cat = if_else(is.na(dist_majhw_cat), names(which.max(table(dist_majhw_cat))), dist_majhw_cat)) |>
-  pivot_longer(!c(1,10:16), names_to = "chemical", values_to = "conc")
+  mutate_if(is.character, as.factor)
 
 ```
+
+#summary table
+```{r}
+summary_tbl <- function(data, categorical_vars, continuous_vars) {
+  # initialize empty list to store results
+  results_list <- list()
+  
+  # loop through each categorical variable
+  for (cat_var in categorical_vars) {
+    # loop through each level of the categorical variable
+    for (cat_level in levels(data[[cat_var]])) {
+      # subset the data to only include rows with the current categorical level
+      cat_data <- data[data[[cat_var]] == cat_level, ]
+      
+      # initialize empty list to store summary statistics for each continuous variable
+      cat_results_list <- list()
+      
+      # loop through each continuous variable
+      for (cont_var in continuous_vars) {
+        # compute summary statistics for the current continuous variable
+        cont_summary <- as.data.frame(c(
+          min = round(min(cat_data[[cont_var]]), 1),
+          q1 = round(quantile(cat_data[[cont_var]], 0.25), 1),
+          median = round(median(cat_data[[cont_var]]), 1),
+          q3 = round(quantile(cat_data[[cont_var]], 0.75), 1),
+          max = round(max(cat_data[[cont_var]]), 1),
+          mean = round(mean(cat_data[[cont_var]]), 1),
+          sd = round(sd(cat_data[[cont_var]]), 1),
+          count = nrow(cat_data)
+        ))
+        
+        # store the summary statistics in a named list
+        cont_results <- list()
+        cont_results$variable <- cont_var
+        cont_results$level <- cat_level
+        cont_results$min <- cont_summary[1, 1]
+        cont_results$lower_quartile <- cont_summary[2, 1]
+        cont_results$median <- cont_summary[3, 1]
+        cont_results$upper_quartile <- cont_summary[4, 1]
+        cont_results$max <- cont_summary[5, 1]
+        cont_results$mean <- cont_summary[6, 1]
+        cont_results$sd <- cont_summary[7, 1]
+        cont_results$count <- cont_summary[8, 1]
+        
+        # add the summary statistics for the current continuous variable to the list
+        cat_results_list[[cont_var]] <- cont_results
+      }
+      
+      # combine the summary statistics for all continuous variables into a single data frame
+      cat_results_df <- do.call(rbind, cat_results_list)
+      
+      # add the summary statistics for the current categorical level to the results list
+      results_list[[paste(cat_var, cat_level, sep = "_")]] <- cat_results_df
+    }
+  }
+  
+  # combine the summary statistics for all categorical variables and levels into a single data frame
+  results_df <- as.data.frame(do.call(rbind, results_list))
+  rownames(results_df) <- NULL
+  
+  return(results_df)
+}
+
+x <- summary_tbl(dat, names(dat)[10:15], names(dat)[2:9])
+write_csv(x, "~/Documents/MWAS_home/pj_results/grp_differences/summary_tbl.csv")
+```
+
+
 
 # Group difference testing
 ```{r}
@@ -152,7 +220,7 @@ race <- ggplot(dat, aes(race_cat, conc)) +
   labs(x = NULL, y = NULL, title = "Race") +
   theme(strip.text = element_blank(),
         axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))+
-  scale_y_continuous(limits = c(0, 11))
+  scale_y_continuous(limits = c(0, 10, 2))
 
 
 hh_inc_cat <- ggplot(dat, aes(hh_inc_cat, conc)) +
