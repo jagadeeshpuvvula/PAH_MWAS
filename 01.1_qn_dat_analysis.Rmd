@@ -31,9 +31,12 @@ summ<- mom_pah_raw |>
 ```
 
 ```{r}
-#creatinine adjusted and log transformed values
-dat<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
-  select(c(1,4:11,19:25)) |>
+#creatinine adjusted PAH and questionnaire data
+dt<- left_join(mom_pah_raw, dt_survey, by="group")  
+
+qn_dat_pah <- dt |>
+  mutate(mom_edu = if_else(mom_edu == "Bachelor's degree" | mom_edu == "Master's degree or above", "bach-or-abv", "lt-bach")) |>
+  mutate(mom_race = if_else(mom_race == "Non-Hispanic White", "white", "non-white")) |>
   mutate(stove = replace(stove, stove %in% c("NA_NA", "NA_lt_4hr"), NA))|>
   mutate(stove = case_when(
     grepl("Gas", stove, ignore.case = TRUE) ~ "Gas",
@@ -47,9 +50,94 @@ dat<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
          `4-Hydroxyphenanthrene` = "phen4",
          `9-Hydroxyphenanthrene` = "phen9",
          `1-Hydroxypyrene` = "pyr1")|>
+  select(-c(sigma_lmwt_pah, mom_age))|>
+  pivot_longer(!c(1,10:16), names_to = "chemical", values_to = "conc")
+
+dat<- qn_dat_pah
+```
+
+
+```{r}
+#creatinine adjusted and log transformed values
+dat<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
+  select(c(1,4:11,19:24)) |>
+  mutate(stove = replace(stove, stove %in% c("NA_NA", "NA_lt_4hr"), NA))|>
+  mutate(stove = case_when(
+    grepl("Gas", stove, ignore.case = TRUE) ~ "Gas",
+    grepl("Electric", stove, ignore.case = TRUE) ~ "Electric",
+    is.na(stove) ~ NA_character_,TRUE ~ stove)) |>
+  rename(`1-Hydroxynapthalene` = "nap1",
+         `2-Hydroxynapthalene` = "nap2",
+         `2-Hydroxyfluorene` = "fluo2",
+         `1-Hydroxyphenanthrene` = "phen1",
+         `2,3-Hydroxyphenanthrene` = "phen23",
+         `4-Hydroxyphenanthrene` = "phen4",
+         `9-Hydroxyphenanthrene` = "phen9",
+         `1-Hydroxypyrene` = "pyr1")|>
+  mutate(hh_inc_cat = if_else(is.na(hh_inc_cat), names(which.max(table(hh_inc_cat))), hh_inc_cat)) |>
+  mutate(stove = if_else(is.na(stove), names(which.max(table(stove))), stove)) |>
+  mutate(bbquse = if_else(is.na(bbquse), names(which.max(table(bbquse))), bbquse)) |>
+  mutate(dist_majhw_cat = if_else(is.na(dist_majhw_cat), names(which.max(table(dist_majhw_cat))), dist_majhw_cat)) |>
   pivot_longer(!c(1,10:16), names_to = "chemical", values_to = "conc")
 
 ```
+
+# Group difference testing
+```{r}
+grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
+  result_df <- data.frame()  # initialize an empty dataframe for storing results
+
+  for (cat_var in cat_vars) {
+    for (cont_var in cont_vars) {
+      # check if the continuous variable is numeric
+      if (is.numeric(data[[cont_var]])) {
+        # conduct the t-test and Mann Whitney U test
+        t_test <- t.test(data[[cont_var]] ~ data[[cat_var]])
+        u_test <- wilcox.test(data[[cont_var]] ~ data[[cat_var]], conf.int = TRUE)
+        # extract the relevant information from the t-test output
+        t_stat <- t_test$statistic
+        t_param <- t_test$parameter
+        t_p_val <- t_test$p.value
+        t_conf_int <- paste(round(t_test$conf.int[c(1,2)], 2), collapse = " - ")
+        t_estimate_1 <- t_test$estimate[1]
+        t_estimate_2 <- t_test$estimate[2]
+        # extract the relevant information from the Mann Whitney U test output
+        u_stat <- u_test$statistic
+        u_p_val <- u_test$p.value
+        u_conf_int <- paste(round(u_test$conf.int, 2), collapse = " - ")
+        u_estimate <- u_test$estimate
+        # create a row for the result dataframe
+        result_row <- data.frame(cat_var = cat_var,
+                                 cont_var = cont_var,
+                                 t_stat = t_stat,
+                                 t_df = t_param,
+                                 t_p_val = t_p_val,
+                                 t_conf_int = t_conf_int,
+                                 t_mean_grp_1 = round(t_estimate_1, 2),
+                                 t_mean_grp_2 = round(t_estimate_2, 2),
+                                 u_stat = u_stat,
+                                 u_p_val = u_p_val,
+                                 u_conf_int = u_conf_int,
+                                 u_median_diff = round(u_estimate, 2))
+        # add the row to the result dataframe
+        result_df <- rbind(result_df, result_row)
+      } else {
+        # if the continuous variable is not numeric, print a warning message
+        warning(paste0("Variable '", cont_var, "' is not numeric and will be skipped."))
+      }
+    }
+  }
+  return(result_df)
+}
+```
+
+```{r}
+# Results
+x<- grp_diff_test_loop(dat, cont_vars = names(dat)[2:9], cat_vars = names(dat)[10:15])
+
+write_csv(x, "~/Documents/MWAS_home/pj_results/grp_differences/grp_diff_results.csv")
+```
+
 
 ```{r}
 library(ggplot2)
@@ -57,13 +145,15 @@ library(cowplot)
 library(ggpubr)
 
 race <- ggplot(dat, aes(race_cat, conc)) +
-  geom_boxplot(width=0.5) +
+  geom_boxplot(width = 0.5, outlier.shape = NA) +
   coord_flip() +
   theme_bw() +
-  facet_grid(chemical ~ ., scales = "free_x")+
-  labs(x = NULL, y = NULL, title = "Race")+
+  facet_grid(chemical ~ ., scales = "free_x") +
+  labs(x = NULL, y = NULL, title = "Race") +
   theme(strip.text = element_blank(),
-        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
+        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))+
+  scale_y_continuous(limits = c(0, 11))
+
 
 hh_inc_cat <- ggplot(dat, aes(hh_inc_cat, conc)) +
   geom_boxplot(width=0.5) +
