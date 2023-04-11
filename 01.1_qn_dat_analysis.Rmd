@@ -8,6 +8,8 @@ output: pdf_document
 ```{r}
 library(tidyverse)
 library(janitor)
+library(haven)
+library(reshape2)
 ```
 
 
@@ -271,4 +273,41 @@ ggsave("~/Documents/MWAS_home/pj_results/grp_differences/summary_plot.tiff",
        width = 10,height = 7.3,
        dpi=300)
 ```
+
+#correlation matrix
+```{r}
+covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
+  select(c(4:12)) |>
+  rename(`1-Hydroxynapthalene` = "nap1",
+         `2-Hydroxynapthalene` = "nap2",
+         `2-Hydroxyfluorene` = "fluo2",
+         `1-Hydroxyphenanthrene` = "phen1",
+         `2,3-Hydroxyphenanthrene` = "phen23",
+         `4-Hydroxyphenanthrene` = "phen4",
+         `9-Hydroxyphenanthrene` = "phen9",
+         `1-Hydroxypyrene` = "pyr1",
+         `sigma-LMWT-PAH` = "sigma_lmwt_pah") 
+
+corr <- cor(covariates, method = "pearson") |>
+  melt()
+
+
+ggplot(corr, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", 
+                       midpoint = 0, breaks = seq(-1, 1, 0.2)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.text = element_text(colour = "black", size = 8),
+        strip.text.x = element_text(colour = "black", size = 6.5),
+        strip.text.y = element_text(colour = "black", size = 6.5)) +
+  labs(title = "", x = "", y = "") +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 3)+
+  guides(fill=FALSE)
+
+ggsave("~/Documents/MWAS_home/pj_results/grp_differences/corrmat.tiff", 
+       width = 5,height = 5,
+       dpi=300)
+```
+
 
