@@ -6,6 +6,12 @@ output: pdf_document
 ---
 
 ```{r}
+library(tidyverse)
+library(janitor)
+```
+
+
+```{r}
 #questionniare data
 qn_dat<- read_csv("~/Documents/MWAS_home/pj_dat/qn_dat.csv")|>
   mutate(stove = replace(stove, stove %in% c("NA_NA", "NA_lt_4hr"), NA))|>
@@ -148,8 +154,6 @@ x <- summary_tbl(dat, names(dat)[10:15], names(dat)[2:9])
 write_csv(x, "~/Documents/MWAS_home/pj_results/grp_differences/summary_tbl.csv")
 ```
 
-
-
 # Group difference testing
 ```{r}
 grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
@@ -207,66 +211,64 @@ write_csv(x, "~/Documents/MWAS_home/pj_results/grp_differences/grp_diff_results.
 ```
 
 
+#combine differences summary and t-test results
 ```{r}
-library(ggplot2)
-library(cowplot)
-library(ggpubr)
+dat<- read_csv("~/Documents/MWAS_home/pj_results/grp_differences/summary_tbl.csv")
+dat_stats<- read_csv("~/Documents/MWAS_home/pj_results/grp_differences/grp_diff_results.csv") |>
+  rename(pah = "cont_var", variable="cat_var")|>
+  select(c(1,2,5,7,8)) |>
+  mutate(percent_difference = round(abs(t_mean_grp_1 - t_mean_grp_2) / 
+           ((t_mean_grp_1 + t_mean_grp_2) / 2) * 100, 1))
 
-race <- ggplot(dat, aes(race_cat, conc)) +
-  geom_boxplot(width = 0.5, outlier.shape = NA) +
-  coord_flip() +
-  theme_bw() +
-  facet_grid(chemical ~ ., scales = "free_x") +
-  labs(x = NULL, y = NULL, title = "Race") +
-  theme(strip.text = element_blank(),
-        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))+
-  scale_y_continuous(limits = c(0, 10, 2))
+# join group summaries with t-test results
+dat_viz<- left_join(dat, dat_stats, by=c("pah", "variable")) |>
+  mutate(x_dummy= "1") |>
+  mutate(new_level = paste(level, count, sep = "-")) |>
+  mutate(p_sig= if_else(t_p_val< 0.05, 1, 2))
+
+dat_viz$variable<- factor(dat_viz$variable, levels = c("race", "education", "income", 
+                                           "distance_to_highway", "stove_use",
+                                           "barbeque_use"))
+######################################
+
+```
+
+#visualize and save plot
+```{r}
+cbbPalette <- c( "black", "grey65")
+
+ggplot(dat_viz, aes(y = as.factor(new_level), x = median, xmin = pct_25, xmax = pct75)) + 
+    geom_pointrange(aes(col=factor(p_sig)), 
+                    position=position_dodge(width=1),size = 0.5)+
+  scale_colour_manual(values=cbbPalette)+
+  xlab("")+
+  ylab("")+
+  theme_bw()+
+  theme(axis.line = element_line(colour = "black"),
+        axis.text = element_text(colour = "black", size = 8),
+        strip.background = element_rect(fill = "transparent", colour = NA),
+        strip.text = element_text(colour = "black", size = 8),
+        strip.text.x = element_text(colour = "black", size = 6.5))+
+  facet_grid(variable ~ 
+               factor(pah, levels = c("1-Hydroxynapthalene", "2-Hydroxynapthalene",
+                                      "2-Hydroxyfluorene","1-Hydroxyphenanthrene",
+                                      "2,3-Hydroxyphenanthrene","4-Hydroxyphenanthrene",
+                                      "9-Hydroxyphenanthrene", "1-Hydroxypyrene")),
+             scales = "free", switch = "x")+
+  scale_y_discrete(labels = function(x) gsub("-", "\nn= ", x) %>% paste0("", .))+
+  geom_text(data = dat_viz %>% 
+              group_by(variable, pah) %>%
+              summarize(delta = paste0("x\u0305\u0305-Δ = ", 
+                                       round(percent_difference, 2), "%"),
+                        p_val = paste0("p=", round(t_p_val, 3))), 
+            aes(x = Inf, y = -Inf, label = paste(delta, p_val, sep = ", ")), 
+            hjust = 1.01, vjust = -0.5, size = 2.4, nudge_x = -0.5,
+            nudge_y = -0.5, inherit.aes = FALSE)+
+  guides(color = FALSE)
 
 
-hh_inc_cat <- ggplot(dat, aes(hh_inc_cat, conc)) +
-  geom_boxplot(width=0.5) +
-  coord_flip() +
-  theme_bw() +
-  facet_grid(chemical ~ ., scales = "free_x")+
-  labs(x = NULL, y = NULL, title = "Household income")+
-  theme(strip.text = element_blank(),
-        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
-
-
-bbquse <- ggplot(dat, aes(bbquse, conc)) +
-  geom_boxplot(width=0.5) +
-  coord_flip() +
-  theme_bw() +
-  facet_grid(chemical ~ ., scales = "free_x")+
-  labs(x = NULL, y = NULL, title = "Barbeque")+
-  theme(strip.text = element_blank(),
-        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
-
-stove <- ggplot(dat, aes(stove, conc)) +
-  geom_boxplot(width=0.5) +
-  coord_flip() +
-  theme_bw() +
-  facet_grid(chemical ~ ., scales = "free_x") +
-  labs(x = NULL, y = NULL, title = "Stove use")+
-  theme(strip.text = element_blank(),
-        axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4))
-
-dist_majhw_cat <- ggplot(dat, aes(dist_majhw_cat, conc)) +
-  geom_boxplot(width=0.5) +
-  coord_flip() +
-  theme_bw() +
-  facet_grid(chemical ~ ., scales = "free_x") +
-  labs(x = NULL, y = NULL, title = "Distance - Highway")+
-  theme(axis.title.x = element_blank(), plot.title = element_text(hjust = 0.4),
-        strip.text = element_text(size=5))
-  
-
-
-
-plot_grid(race, hh_inc_cat,bbquse, stove, dist_majhw_cat,rel_heights = c(1,1, 1, 1, 1),
-          axis = "tb", nrow=1)
-ggsave("~/Documents/MWAS_home/summary.tiff",
-       dpi=300, width = 10, height = 8)
-
+ggsave("~/Documents/MWAS_home/pj_results/grp_differences/summary_plot.tiff", 
+       width = 10,height = 7.3,
+       dpi=300)
 ```
 
