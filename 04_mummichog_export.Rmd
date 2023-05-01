@@ -6,9 +6,8 @@ output: pdf_document
 ---
 
 ```{r}
-library(tidyverse)
-library(stringr)
-library(janitor)
+library(pacman)
+pacman::p_load(tidyverse, janitor, stringr)
 ```
 
 

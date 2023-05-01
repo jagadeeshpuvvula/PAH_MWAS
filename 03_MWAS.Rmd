@@ -6,7 +6,9 @@ output: pdf_document
 ---
 
 ```{r}
-library(tidyverse)
+library(pacman)
+pacman::p_load(tidyverse, janitor)
+path <- "~/Documents/MWAS_home/pj_dat/"
 ```
 
 #===============================================================================
@@ -15,9 +17,9 @@ library(tidyverse)
 
 #MOM analysis
 ```{r}
-covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
-  select(c(2,4:20)) |>
-  rename(subject_id = "participant_id_mom", 
+covariates<- read_csv(paste0(path, "pah_fin_impu.csv"))  |>
+  select(c(2:11,17,20,23,25,26)) |>
+  rename(subject_id = "participant_id_mom",
          `1-Hydroxynapthalene` = "nap1",
          `2-Hydroxynapthalene` = "nap2",
          `2-Hydroxyfluorene` = "fluo2",
@@ -32,8 +34,8 @@ covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
 
 #BABY analysis
 ```{r}
-covariates<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
-  select(c(3:20)) |>
+covariates<- read_csv(paste0(path, "pah_fin_impu.csv"))  |>
+  select(c(2:11,18,20,21,23:26)) |>
   rename(subject_id = "participant_id_baby",
          `1-Hydroxynapthalene` = "nap1",
          `2-Hydroxynapthalene` = "nap2",
@@ -103,14 +105,14 @@ match(names(feature_table)[-c(1:2)], covariates$subject_id)
 #covariates for baby: mom_ppbmi + mom_age + pgtob + mom_edu_cat + race_cat + totpg + sex
 ```{r}
 result_list <- list() # create empty list to store results
-variables <- names(covariates[2:10]) # list of variables to analyze
+variables <- names(covariates[1:9]) # list of variables to analyze
 
 for (variable in variables) {
   current_results <- data.frame(matrix(nrow = nrow(feature_table), ncol = 4)) # create a new data frame for each variable
   names(current_results) <- c("Estimate", "Std. Error", "t value", "Pr(>|t|)")
   for (i in 1:nrow(feature_table)){
     metabolite <- unlist(feature_table[i,-c(1:2)]) # store the ith metabolite in new vector
-    current_results[i,] <- summary(lm(metabolite ~ get(variable) + mom_ppbmi + mom_age + pgtob + mom_edu_cat + race_cat,
+    current_results[i,] <- summary(lm(metabolite ~ get(variable) + mom_ppbmi + mom_age + pgtob + mom_edu_cat + race_cat + totpg + sex,
                              data=covariates))$coefficients[2,c(1:4)] # store regression results for ith metabolite
   }
   current_results$FDR <- p.adjust(current_results[[4]], method=c("fdr")) # fdr adjustment
@@ -132,7 +134,7 @@ result_summary<- PAH_MWAS_result |>
   mutate(run = "c18neg", mom_baby = "mom")
 
 fdr_threshold<- result_summary %>% select(run, mom_baby, Variable, fdr_cutoff)
-write_csv(fdr_threshold, "~/Documents/MWAS_home/pj_results/pah_mom/c18neg/c18neg_mom_threshold.csv")
+write_csv(fdr_threshold, "~/Documents/MWAS_home/pj_results/pah_baby/hilic_pos/hilic_pos_baby_threshold.csv")
 ```
 
 #add significance and beta direction
@@ -146,7 +148,7 @@ PAH_MWAS_result <- PAH_MWAS_result |>
     p_value > fdr_cutoff & Estimate > 0 ~ "positive-non_significant",
     p_value > fdr_cutoff & Estimate < 0 ~ "negative-non_significant"))
 
-write_csv(PAH_MWAS_result, "~/Documents/MWAS_home/pj_results/pah_mom/c18neg/c18neg_mom_MWAS.csv")
+write_csv(PAH_MWAS_result, "~/Documents/MWAS_home/pj_results/pah_baby/hilic_pos/hilic_pos_baby_MWAS.csv")
 ```
 
 
@@ -171,7 +173,7 @@ ggplot(PAH_MWAS_result, aes(x=mz, y=-log10(p_value), color=beta_dir)) +
                                 "positive-non_significant" = "grey",
                                 "negative-non_significant" = "grey"))
 
-ggsave("~/Documents/MWAS_home/pj_results/pah_mom/c18neg/c18neg_mom.tiff",
+ggsave("~/Documents/MWAS_home/pj_results/pah_baby/hilic_pos/hilic_pos_baby.tiff",
        dpi=300, height = 8, width = 8)
 ```
 
