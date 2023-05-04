@@ -7,20 +7,32 @@ output: pdf_document
 
 ```{r}
 library(tidyverse)
+library(janitor)
 ```
 
 ```{r}
 pathways<- read_csv("~/Documents/MWAS_home/pj_results/mummi_import_combined.csv") |>
-  unite(col= "fact_new", mom_baby, pos_neg, sep = "-")
+  unite(col= "fact_new", mom_baby, pos_neg, sep = "-") |>
+  clean_names()
+
+#p_fisher = one-tailed Fisher Exact Test p-value (based on Gaussian hypergeometric probability distribution)
+#p_ease = EASE score (a conservative adjustment to the Fisher exact probability that weights significance in favor of themes supported by more hits) Expression Analysis Systematic Explorer
+#p_gamma = Gamma p values - using Gamma distribution to model permutation results
 
 plot.mcg <- pathways |> 
-  filter(FET < 0.05) |>
-  mutate(logp = -log10(FET), enrichment = Hits.sig/Expected, 
-         pct_sig_hits = (Hits.sig/`Pathway total`)*100) |>
+  filter(p_fisher < 0.05) |>
+  mutate(logp = -log10(p_fisher), enrichment = hits_sig/expected, 
+         pct_sig_hits = (hits_sig/pathway_total)*100) |>
   mutate(pct_sig_hits_disc = cut(pct_sig_hits, breaks = seq(0, 90, by = 15), 
                                  labels = c("< 15", "15 - <30", "30 - <45", 
                                             "45 - <60", "60 - <75", "75 - <90"))) |>
-  filter(`Pathway total` > 1)
+  filter(pathway_total > 1)
+
+# Rename labels for maternal and newborn
+# Update the levels of fact_new with new labels
+plot.mcg$fact_new <- factor(plot.mcg$fact_new, 
+                             levels = c("baby-neg", "baby-pos", "mom-neg", "mom-pos"),
+                             labels = c("Newborn C18", "Newborn HILIC", "Maternal C18", "Maternal HILIC"))
 
 #########################################
 my_colors <- colorRampPalette(c("#F8766D", "#7CAE00"))(6)
@@ -35,6 +47,21 @@ plot.mcg$metabolism_cluster <- ifelse(grepl("metabolism", plot.mcg$name, ignore.
                                                            "degradation","na"))))
 
 
+# Creating new variable to cluster y axis
+plot.mcg <- plot.mcg %>%
+  mutate(group = case_when(
+    grepl("Vitamin", name, ignore.case = TRUE) ~ "vit",
+    grepl("fatty acid|Arachidonic|Carnitine|Phytanic|Butanoate|Glycerophospholipid", name, ignore.case = TRUE) ~ "fatty",
+    grepl("steroid|androgen", name, ignore.case = TRUE) ~ "ster",
+    grepl("porphyrin|Pyrimidine|Purine|Glyoxylate", name, ignore.case = TRUE) ~ "organic",
+    grepl("Methionine|Glutamate|Glycine|Beta-Alanine|Arginine|Glutathione|Aspartate|Lysine|Tyrosine|Alanine|Tryptophan",
+          name, ignore.case = TRUE) ~ "amino",
+    grepl("Galactose|Fructose|Pentose", name, ignore.case = TRUE) ~ "sug",
+    TRUE ~ "other"
+  ))
+
+plot.mcg$group<- factor(plot.mcg$group, levels = c("vit", "amino", "sug", "fatty", "ster", "organic"))
+
 # Reorder y-axis based on the cluster labels
 plot.mcg |>
   ggplot(aes(x = factor(chemical, levels = c("1-Hydroxynapthalene", "2-Hydroxynapthalene", "2-Hydroxyfluorene",
@@ -47,11 +74,11 @@ plot.mcg |>
   xlab("") +
   ylab("") +
   theme_bw() +
-  theme(axis.text=element_text(size=10), 
-        axis.title=element_text(size=10,face="bold"),
-        strip.text = element_text(size=10),
-        legend.text=element_text(size=10),
-        legend.title=element_text(size=10),
+  theme(axis.text=element_text(size=9), 
+        axis.title=element_text(size=9,face="bold"),
+        strip.text = element_text(size=9),
+        legend.text=element_text(size=9),
+        legend.title=element_text(size=9),
         legend.position="bottom",
         legend.justification="right",
         legend.box="horizontal",
@@ -60,19 +87,39 @@ plot.mcg |>
         panel.grid.minor = element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.major.y = element_blank(),
-        axis.text.x = element_text(angle = 40, hjust = 1, vjust = 1, size = 10),
-        axis.text.y = element_text(size = 10), 
+        axis.text.x = element_text(angle = 40, hjust = 1, vjust = 1, size = 9),
+        axis.text.y = element_text(size = 9), 
         panel.spacing.x=unit(0.8, "lines"),
         panel.spacing.y=unit(0.02, "lines"),
         strip.text.y = element_blank())+
   guides(fill = guide_legend(nrow = 1))+
   facet_grid(factor(metabolism_cluster, levels = c("metabolism", "oxidation",
-                                                   "degradation", "biosynthesis", "na"))
-             ~ fact_new, scales = "free_y", 
+                                                   "degradation", "biosynthesis", "na"))*group~ fact_new, scales = "free_y", 
              switch = "y", space = "free_y")+
-  labs(fill = "% significant hits in the pathway")
+  labs(fill = "% significant hits per pathway")
 
 ggsave("~/Documents/MWAS_home/pj_results/pah_pathway.tiff", 
        width = 10, height = 8, dpi=300)
 ```
+
+# Summary tables for publication text
+```{r}
+x<-plot.mcg |>
+  group_by(fact_new, chemical) |>
+  summarise(n_unique_names = n_distinct(name),
+            uniq_pct = round((n_distinct(name)/54)*100,2))
+
+#times per baby_mom per pos_neg a pathway repeated
+y<-plot.mcg |>
+  group_by(name,fact_new) |>
+  summarise(times_repeat = n())
+
+z<-plot.mcg |>
+  group_by(chemical,fact_new) |>
+  summarise(times_repeat = n())
+```
+
+
+
+
 

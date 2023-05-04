@@ -43,6 +43,12 @@ read_csv_file <- function(file) {
 
 # Apply the function to each CSV file and combine them into a single data frame
 combined_df <- map_dfr(csv_files, read_csv_file)
+
+combined_df<- combined_df |>
+  rename(m.z="mz",
+         p.value="p_value",
+         t.score="t value",
+         r.t="time")
 ```
 
 
