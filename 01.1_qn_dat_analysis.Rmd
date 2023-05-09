@@ -226,7 +226,8 @@ dat_stats<- read_csv("~/Documents/MWAS_home/pj_results/grp_differences/grp_diff_
 dat_viz<- left_join(dat, dat_stats, by=c("pah", "variable")) |>
   mutate(x_dummy= "1") |>
   mutate(new_level = paste(level, count, sep = "-")) |>
-  mutate(p_sig= if_else(t_p_val< 0.05, 1, 2))
+  mutate(p_sig= if_else(t_p_val< 0.05, 1, 2),
+         pct_diff=if_else(percent_difference >10, 1, 2))
 
 dat_viz$variable<- factor(dat_viz$variable, levels = c("race", "education", "income", 
                                            "distance_to_highway", "stove_use",
@@ -240,7 +241,7 @@ dat_viz$variable<- factor(dat_viz$variable, levels = c("race", "education", "inc
 cbbPalette <- c( "black", "grey65")
 
 ggplot(dat_viz, aes(y = as.factor(new_level), x = median, xmin = pct_25, xmax = pct75)) + 
-    geom_pointrange(aes(col=factor(p_sig)), 
+    geom_pointrange(aes(col=factor(pct_diff)), 
                     position=position_dodge(width=1),size = 0.5)+
   scale_colour_manual(values=cbbPalette)+
   xlab("")+
