@@ -143,6 +143,6 @@ write_csv(dat_fin, "~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv")
 #Term delivery
 ```{r}
 x<-dat_fin |>
-  filter(ga_w >= 39 & ga_w <= 40)
+  filter(ga_w <=37)
 ```
 
