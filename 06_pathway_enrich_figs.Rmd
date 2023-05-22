@@ -54,7 +54,7 @@ plot.mcg <- plot.mcg %>%
     grepl("fatty acid|Arachidonic|Carnitine|Phytanic|Butanoate|Glycerophospholipid", name, ignore.case = TRUE) ~ "fatty",
     grepl("steroid|androgen", name, ignore.case = TRUE) ~ "ster",
     grepl("porphyrin|Pyrimidine|Purine|Glyoxylate", name, ignore.case = TRUE) ~ "organic",
-    grepl("Methionine|Glutamate|Glycine|Beta-Alanine|Arginine|Glutathione|Aspartate|Lysine|Tyrosine|Alanine|Tryptophan",
+    grepl("Methionine|Glutamate|Glycine|Beta-Alanine|Arginine|Glutathione|Aspartate|Lysine|Tyrosine|Alanine|Tryptophan|Histidine",
           name, ignore.case = TRUE) ~ "amino",
     grepl("Galactose|Fructose|Pentose", name, ignore.case = TRUE) ~ "sug",
     TRUE ~ "other"
@@ -104,6 +104,11 @@ ggsave("~/Documents/MWAS_home/pj_results/pah_pathway.tiff",
 
 # Summary tables for publication text
 ```{r}
+#total pathways associated with PAH
+n_distinct(pathways$name)
+# significant number of pathways associated with PAH
+n_distinct(plot.mcg$name)
+
 x<-plot.mcg |>
   group_by(fact_new, chemical) |>
   summarise(n_unique_names = n_distinct(name),
