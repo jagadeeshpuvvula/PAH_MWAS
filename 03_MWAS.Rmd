@@ -142,12 +142,12 @@ perform_PAH_MWAS <- function(feature_table, covariates, output_folder, mwas_file
   
   # Save final result to a file
   output_file <- paste0(output_folder, "/", mwas_file_name)
-  write_csv(PAH_MWAS_result, file = output_file, row.names = FALSE)
+  write.csv(PAH_MWAS_result, file = output_file, row.names = FALSE)
     # Save unique values and corresponding FDR cutoffs to a separate file
   unique_variables <- unique(PAH_MWAS_result$Variable)
   fdr_cutoff_df <- data.frame(Variable = unique_variables, FDR_Cutoff = fdr_cutoff_values[unique_variables])
   fdr_output_file <- paste0(output_folder, "/", cutoff_file_name)
-  write_csv(fdr_cutoff_df, file = fdr_output_file, row.names = FALSE)
+  write.csv(fdr_cutoff_df, file = fdr_output_file, row.names = FALSE)
   
   return(PAH_MWAS_result)
 }
