@@ -4,14 +4,21 @@ author: "Puvvula"
 date: "2023-03-02"
 output: pdf_document
 ---
+
+```{r}
+library(pacman)
+pacman::p_load(tidyverse, janitor, haven, skimr, readr)
+path <- "~/Documents/MWAS_home/pj_dat/lc_ms/"
+```
+
 c18 neg
 ```{r}
 #LC-MS read values
-c18neg<- read_tsv("~/Documents/MWAS_home/pj_dat/lc_ms/combat_c18neg.txt") |>
+c18neg<- read_tsv(paste0(path, "combat_c18neg.txt")) |>
   as.data.frame()
 
 #subject_id - mapping
-id_map<- read_tsv("~/Documents/MWAS_home/pj_dat/lc_ms/map_c18neg.txt") |>
+id_map<- read_tsv(paste0(path, "map_c18neg.txt")) |>
   as.data.frame() |>
   filter(substr(SampleID, 1, 1) == "A") |>
   filter(str_detect(SampleID, "M_2|B_2"))
@@ -37,11 +44,11 @@ write_csv(mom_dat, "~/Documents/MWAS_home/pj_dat/lc_ms_c18neg_mom.csv")
 HILIC positive
 ```{r}
 #LC-MS read values
-hilicpos<- read_tsv("~/Documents/MWAS_home/pj_dat/lc_ms/combat_hilicpos.txt") |>
+hilicpos<- read_tsv(paste0(path, "combat_hilicpos.txt")) |>
   as.data.frame()
 
 #subject_id - mapping
-id_map<- read_tsv("~/Documents/MWAS_home/pj_dat/lc_ms/map_hilicpos.txt") |>
+id_map<- read_tsv(paste0(path, "map_hilicpos.txt")) |>
   as.data.frame() |>
   filter(substr(SampleID, 1, 1) == "A") |>
   filter(str_detect(SampleID, "M_2|B_2"))
