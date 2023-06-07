@@ -6,14 +6,18 @@ output: pdf_document
 ---
 
 ```{r}
-library(tidyverse)
-library(janitor)
+library(pacman)
+pacman::p_load(tidyverse, janitor)
 ```
 
 ```{r}
-pathways<- read_csv("~/Documents/MWAS_home/pj_results/mummi_import_combined.csv") |>
-  unite(col= "fact_new", mom_baby, pos_neg, sep = "-") |>
-  clean_names()
+pathways<- read_csv("~/Documents/MWAS_home/pj_result/mummi_import_combined.csv") |>
+  clean_names()|>
+  rename(p_fisher = "fet",
+         name= "x") |>
+  mutate(mom_baby = fct_recode(mom_baby,
+                               "Maternal" = "mom",
+                               "Newborn" = "baby"))
 
 #p_fisher = one-tailed Fisher Exact Test p-value (based on Gaussian hypergeometric probability distribution)
 #p_ease = EASE score (a conservative adjustment to the Fisher exact probability that weights significance in favor of themes supported by more hits) Expression Analysis Systematic Explorer
@@ -30,9 +34,7 @@ plot.mcg <- pathways |>
 
 # Rename labels for maternal and newborn
 # Update the levels of fact_new with new labels
-plot.mcg$fact_new <- factor(plot.mcg$fact_new, 
-                             levels = c("baby-neg", "baby-pos", "mom-neg", "mom-pos"),
-                             labels = c("Newborn C18", "Newborn HILIC", "Maternal C18", "Maternal HILIC"))
+#plot.mcg$fact_new <- factor(plot.mcg$fact_new, levels = c("baby-neg", "baby-pos", "mom-neg", "mom-pos"),labels = c("Newborn C18", "Newborn HILIC", "Maternal C18", "Maternal HILIC"))
 
 #########################################
 my_colors <- colorRampPalette(c("#F8766D", "#7CAE00"))(6)
@@ -62,6 +64,9 @@ plot.mcg <- plot.mcg %>%
 
 plot.mcg$group<- factor(plot.mcg$group, levels = c("vit", "amino", "sug", "fatty", "ster", "organic"))
 
+#export results csv
+write_csv(plot.mcg, "~/Documents/MWAS_home/pj_result/plot_mcg.csv")
+
 # Reorder y-axis based on the cluster labels
 plot.mcg |>
   ggplot(aes(x = factor(chemical, levels = c("1-Hydroxynapthalene", "2-Hydroxynapthalene", "2-Hydroxyfluorene",
@@ -74,11 +79,11 @@ plot.mcg |>
   xlab("") +
   ylab("") +
   theme_bw() +
-  theme(axis.text=element_text(size=9), 
-        axis.title=element_text(size=9,face="bold"),
-        strip.text = element_text(size=9),
-        legend.text=element_text(size=9),
-        legend.title=element_text(size=9),
+  theme(axis.text=element_text(size=10), 
+        axis.title=element_text(size=10,face="bold"),
+        strip.text = element_text(size=10),
+        legend.text=element_text(size=10),
+        legend.title=element_text(size=10),
         legend.position="bottom",
         legend.justification="right",
         legend.box="horizontal",
@@ -87,20 +92,32 @@ plot.mcg |>
         panel.grid.minor = element_blank(),
         panel.grid.major = element_blank(),
         panel.grid.major.y = element_blank(),
-        axis.text.x = element_text(angle = 40, hjust = 1, vjust = 1, size = 9),
-        axis.text.y = element_text(size = 9), 
+        axis.text.x = element_text(angle = 40, hjust = 1, vjust = 1, size = 10),
+        axis.text.y = element_text(size = 10), 
         panel.spacing.x=unit(0.8, "lines"),
         panel.spacing.y=unit(0.02, "lines"),
         strip.text.y = element_blank())+
   guides(fill = guide_legend(nrow = 1))+
   facet_grid(factor(metabolism_cluster, levels = c("metabolism", "oxidation",
-                                                   "degradation", "biosynthesis", "na"))*group~ fact_new, scales = "free_y", 
+                                                   "degradation", "biosynthesis", "na"))*group~ mom_baby, scales = "free_y", 
              switch = "y", space = "free_y")+
   labs(fill = "% significant hits per pathway")
 
-ggsave("~/Documents/MWAS_home/pj_results/pah_pathway.tiff", 
-       width = 10, height = 8, dpi=300)
+ggsave("~/Documents/MWAS_home/pj_result/pah_pathway.tiff", 
+       width = 8, height = 10, dpi=300)
 ```
+
+#Venn diagram
+```{r}
+data<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")
+
+data<- plot.mcg |> 
+  select(name, chemical, metabolism_cluster, mom_baby)
+
+
+```
+
+
 
 # Summary tables for publication text
 ```{r}

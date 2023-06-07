@@ -6,42 +6,51 @@ output: pdf_document
 ---
 
 ```{r}
-library(tidyverse)
-library(purrr)
+library(pacman)
+pacman::p_load(tidyverse, janitor, readr)
 ```
 
-#import and combine all the mummichog imported files
+#function to combine all the mimmichog import files
 ```{r}
-# Set the main directory
-main_dir <- "~/Documents/MWAS_home/pj_results/mummi_import"
-
-# Use list.files() to get a list of all the files matching the pattern
-file_paths <- list.files(main_dir, recursive = TRUE, pattern = "mummichog_pathway_enrichment.csv", full.names = TRUE)
-
-# Use map_dfr() to read in each file, add variables indicating the folder location, and bind the resulting data frames
-combined_df <- map_dfr(file_paths, ~{
-  # Read in the file
-  df <- read_csv(.x)
+combine_csv_files <- function(folder_location) {
+  # Get list of CSV files in the folder
+  file_list <- list.files(path = folder_location, pattern = "\\.csv$", full.names = TRUE)
   
-  # Add variables indicating the folder location
-  df <- df %>% 
-    mutate(folder_location = str_replace(dirname(.x), 
-                                         "/Users/jpuvvula/Documents/MWAS_home/pj_results/mummi_import", "")) %>% 
-    separate(folder_location, c("var1", "folder_name"), sep = "/") |>
-    mutate(pos_neg = ifelse(str_detect(folder_name, "c18neg"), "neg", "pos"), 
-           mom_baby = ifelse(str_detect(folder_name, "baby"), "baby", "mom")) |>
-    separate(folder_name, c("chemical"), sep = "_") |>
-    select(-c(var1)) |>
-    rename(name = 1)
+  # Initialize an empty list to store data frames
+  data_frames <- list()
   
-  # Return the modified data frame
-  df
-})
+  # Read and row bind each CSV file
+  for (file in file_list) {
+    # Extract chemical and mom_baby from file name
+    file_name <- basename(file)
+    file_parts <- strsplit(file_name, "_")[[1]]
+    chemical <- file_parts[1]
+    mom_baby <- gsub(".csv", "", file_parts[2], fixed = TRUE)
+    
+    # Read CSV file
+    csv_data <- read.csv(file)
+    
+    # Add chemical and mom_baby as variables
+    csv_data$chemical <- chemical
+    csv_data$mom_baby <- mom_baby
+    
+    # Append the data frame to the list
+    data_frames[[length(data_frames) + 1]] <- csv_data
+  }
+  
+  # Combine all data frames into a single data frame
+  combined_df <- do.call(rbind, data_frames)
+  
+  return(combined_df)
+}
+```
 
-# View the combined data frame
-combined_df
+#merge data
+```{r}
+combined_data <- combine_csv_files("~/Documents/MWAS_home/pj_result/mummi_imp/")
 
-write_csv(combined_df, "~/Documents/MWAS_home/pj_results/mummi_import_combined.csv")
+#export data
+write_csv(combined_data, "~/Documents/MWAS_home/pj_result/mummi_import_combined.csv")
 ```
 
 
