@@ -11,15 +11,13 @@ filtered_res <- res %>%
 #============================================================================
 
 
-#functional analysis with p-value 0.05
-
 runMummichog <- function(input_folder, output_folder) {
   # create object for storing data
   mSet3 <- InitDataObjects("mass_all", "mummichog", FALSE)
   
   # set peak format
   mSet3 <- SetPeakFormat(mSet3, "rmp")
-  mSet3 <- UpdateInstrumentParameters(mSet3, 5.0, "negative", "no")
+  mSet3 <- UpdateInstrumentParameters(mSet3, 5.0, "mixed", "no")
   
   # get a list of text files in the input folder
   input_files <- list.files(input_folder, pattern = "\\.txt$", full.names = TRUE)
@@ -32,7 +30,7 @@ runMummichog <- function(input_folder, output_folder) {
     
     # map selected adducts to current data
     mSet3 <- Setup.AdductData(mSet3, add.vec)
-    mSet3 <- PerformAdductMapping(mSet3, add.mode="negative")
+    mSet3 <- PerformAdductMapping(mSet3, add.mode="mixed")
     
     # perform mummichog algorithm using selected adducts, using version 2 of the mummichog algorithm
     mSet3 <- SetPeakEnrichMethod(mSet3, algOpt="mum", version="v2")

@@ -56,7 +56,7 @@ covariates<- read_csv(paste0(path, "pah_fin_impu.csv"))  |>
 
 #mz and retention time - MOM - C18 Negative
 ```{r}
-feature_table <- read_csv(paste0(path, "lc_ms_c18neg_mom.csv")) |>
+n_ft <- read_csv(paste0(path, "lc_ms_c18neg_mom.csv")) |>
   select(-c(3:10))|>
   mutate(across(3:last_col(), ~ log10(. + 1))) |>
   mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
@@ -64,7 +64,7 @@ feature_table <- read_csv(paste0(path, "lc_ms_c18neg_mom.csv")) |>
 
 #mz and retention time - MOM - hilic positive
 ```{r}
-feature_table <- read_csv(paste0(path, "lc_ms_hilicpos_mom.csv")) |>
+p_ft <- read_csv(paste0(path, "lc_ms_hilicpos_mom.csv")) |>
   select(-c(3:10))|>
   mutate(across(3:last_col(), ~ log10(. + 1))) |>
   mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
@@ -72,7 +72,7 @@ feature_table <- read_csv(paste0(path, "lc_ms_hilicpos_mom.csv")) |>
 
 #mz and retention time - BABY - C18 Negative
 ```{r}
-feature_table <- read_csv(paste0(path, "lc_ms_c18neg_baby.csv")) |>
+n_ft <- read_csv(paste0(path, "lc_ms_c18neg_baby.csv")) |>
   select(-c(3:10))|>
   mutate(across(3:last_col(), ~ log10(. + 1))) |>
   mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
@@ -80,7 +80,7 @@ feature_table <- read_csv(paste0(path, "lc_ms_c18neg_baby.csv")) |>
 
 #mz and retention time - BABY - hilic positive
 ```{r}
-feature_table <- read_csv(paste0(path, "lc_ms_hilicpos_baby.csv")) |>
+p_ft <- read_csv(paste0(path, "lc_ms_hilicpos_baby.csv")) |>
   select(-c(3:10))|>
   mutate(across(3:last_col(), ~ log10(. + 1))) |>
   mutate(across(3:last_col(), ~ (. - mean(.)) / sd(.)))
@@ -88,16 +88,49 @@ feature_table <- read_csv(paste0(path, "lc_ms_hilicpos_baby.csv")) |>
 
 
 #===============================================================================
-#align subject_id with the order from mz feature table
+#align subject_id with the order from negative mz feature table
 ```{r shuffle FT columns}
-matches <- c(1:2, match(covariates$subject_id, names(feature_table))) 
-feature_table <- feature_table[matches]
-```
+matches <- c(1:2, match(covariates$subject_id, names(n_ft))) 
+n_ft <- n_ft[matches]
 
 #check order
-```{r}
-match(names(feature_table)[-c(1:2)], covariates$subject_id)
+match(names(n_ft)[-c(1:2)], covariates$subject_id)
+
+#negative mode features
+ft_neg<- n_ft |>
+  unite(mz_rt, mz, time, sep = "_", remove = FALSE) |>
+  mutate(mz_rt_mode = paste0(mz_rt, "_negative")) |>
+  select(-c(mz, time, mz_rt)) |>
+  select(mz_rt_mode, everything())
 ```
+
+#align subject_id with the order from positive mz feature table
+```{r}
+matches <- c(1:2, match(covariates$subject_id, names(p_ft))) 
+p_ft <- p_ft[matches]
+
+#check order
+match(names(p_ft)[-c(1:2)], covariates$subject_id)
+
+#positive mode features
+ft_pos<- p_ft |>
+  unite(mz_rt, mz, time, sep = "_", remove = FALSE) |>
+  mutate(mz_rt_mode = paste0(mz_rt, "_positive")) |>
+  select(-c(mz, time, mz_rt)) |>
+  select(mz_rt_mode, everything())
+```
+
+#combine negative and positive features
+```{r}
+feature_table<- bind_rows(ft_neg, ft_pos)
+
+#save combined feature tables
+write_csv(feature_table, paste0(path, "combined_ft/mom_ft.csv"))
+
+write_csv(feature_table, paste0(path, "combined_ft/baby_ft.csv"))
+```
+
+
 #==============================================================================#
 #==============================================================================#
 #revised MWAS loop
@@ -113,12 +146,12 @@ perform_PAH_MWAS <- function(feature_table, covariates, output_folder, mwas_file
     current_results <- data.frame(matrix(nrow = nrow(feature_table), ncol = 4)) # create a new data frame for each variable
     names(current_results) <- c("Estimate", "Std. Error", "t value", "Pr(>|t|)")
     for (i in 1:nrow(feature_table)){
-      metabolite <- unlist(feature_table[i,-c(1:2)]) # store the ith metabolite in new vector
-      current_results[i,] <- summary(lm(metabolite ~ get(variable) + mom_ppbmi + mom_age + pgtob + mom_edu_cat + race_cat ,
+      metabolite <- unlist(feature_table[i,-c(1)]) # store the ith metabolite in new vector
+      current_results[i,] <- summary(lm(metabolite ~ get(variable) + mom_ppbmi + mom_age + pgtob + mom_edu_cat + race_cat + totpg + sex,
                                         data=covariates))$coefficients[2,c(1:4)] # store regression results for ith metabolite
     }
     current_results$FDR <- p.adjust(current_results[[4]], method=c("fdr")) # fdr adjustment
-    current_results <- cbind(feature_table[c(1:2)], current_results) # add mz and time
+    current_results <- cbind(feature_table[c(1)], current_results) # add mz and time
     current_results$Variable <- variable
     result_list[[variable]] <- current_results # add current results to list
   }
@@ -156,9 +189,9 @@ perform_PAH_MWAS <- function(feature_table, covariates, output_folder, mwas_file
 ```{r}
 result<- perform_PAH_MWAS(feature_table = feature_table, 
                           covariates = covariates,
-                          output_folder = "~/Documents/test",
-                          mwas_file_name="mom_c18_neg.csv",
-                          cutoff_file_name="mom_c18_neg_fdr_coff.csv")
+                          output_folder = "~/Documents/MWAS_home/pj_result",
+                          mwas_file_name="baby_mwas.csv",
+                          cutoff_file_name="baby_fdr_coff.csv")
 ```
 
 #==============================================================================#
@@ -166,7 +199,7 @@ result<- perform_PAH_MWAS(feature_table = feature_table,
 #==============================================================================#
 ```{r}
 ggplot(result, aes(x=(Estimate), y=-log10(`Pr(>|t|)`), color=beta_dir)) +
-    geom_point(size=0.5) +
+    geom_point(size=0.2) +
     scale_x_continuous(name="Adjusted beta coefficient per unit change in PAH level",
                        labels=scales::comma) +
     scale_y_continuous(name="-log10(P-value)", labels=scales::comma) +
@@ -187,7 +220,7 @@ ggplot(result, aes(x=(Estimate), y=-log10(`Pr(>|t|)`), color=beta_dir)) +
                                   "positive-non_significant" = "grey",
                                   "negative-non_significant" = "grey"))
 
-ggsave("~/Documents/MWAS_home/pj_results/pah_baby/hilic_pos/hilic_pos_baby.tiff",
+ggsave("~/Documents/MWAS_home/pj_result/baby_mwas.tiff",
        dpi=300, height = 8, width = 8)
 ```
 

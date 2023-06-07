@@ -8,20 +8,15 @@ output: pdf_document
 ```{r}
 library(pacman)
 pacman::p_load(tidyverse, janitor, stringr)
+
+path <- "~/Documents/MWAS_home/pj_result/"
 ```
 
 
 #Take all the MWAS output files from the path and combine the files
 ```{r}
-# Define the paths to the directories containing the CSV files
-path1 <- "~/Documents/MWAS_home/pj_results/pah_mom"
-path2 <- "~/Documents/MWAS_home/pj_results/pah_baby"
-
 # Get a list of all CSV files in both directories and their subdirectories
-csv_files <- c(list.files(path = path1, pattern = "\\_MWAS.csv$", 
-                        recursive = TRUE, full.names = TRUE),
-               list.files(path = path2, pattern = "\\_MWAS.csv$", 
-                        recursive = TRUE, full.names = TRUE))
+csv_files <- list.files(path = path, pattern = "\\_mwas.csv$", recursive = TRUE, full.names = TRUE)
 
 
 # Create a function to read and process each CSV file
@@ -29,14 +24,11 @@ read_csv_file <- function(file) {
   # Read the CSV file
   df <- read_csv(file)
   
-  # Keep only the desired variables
-  df <- df %>% select(1, 6, 5, 2, 8, 12)
-  
   # Create the pos_neg variable
-  pos_neg <- str_remove(basename(file), "\\.csv$")
+  mom_baby <- str_remove(basename(file), "\\.csv$")
   
   # Add the pos_neg variable to the data frame
-  df$pos_neg <- pos_neg
+  df$mom_baby <- mom_baby
   
   return(df)
 }
@@ -44,11 +36,13 @@ read_csv_file <- function(file) {
 # Apply the function to each CSV file and combine them into a single data frame
 combined_df <- map_dfr(csv_files, read_csv_file)
 
-combined_df<- combined_df |>
-  rename(m.z="mz",
-         p.value="p_value",
-         t.score="t value",
-         r.t="time")
+combined_df1<- combined_df |>
+  separate(mz_rt_mode, into = c("m.z", "r.t", "mode"), sep = "_") |>
+  rename(p.value="Pr(>|t|)", t.score="t value") |>
+  select("mom_baby","Variable", "m.z", "p.value", "t.score", 
+         "r.t", "mode", "fdr_cutoff")
+  
+write_csv(combined_df1, paste0(path, "for_mummi_exp.csv"))
 ```
 
 
@@ -56,75 +50,34 @@ combined_df<- combined_df |>
 ```{r}
 summary_table <- combined_df |>
   filter(beta_dir %in% c("positive-significant", "negative-significant")) |>
-  group_by(Variable, pos_neg, beta_dir)|>
+  group_by(Variable, mom_baby, beta_dir)|>
   summarize(n = n())|>
-  pivot_wider(names_from = c(pos_neg, beta_dir), values_from = n)|> 
+  pivot_wider(names_from = c(mom_baby, beta_dir), values_from = n)|> 
   adorn_totals("row")|> 
   adorn_totals("col")
 
 # Save summary table
-write_csv(summary_table, "~/Documents/MWAS_home/pj_results/sign_features_summary.csv")
+write_csv(summary_table, paste0(path, "sign_features_summary.csv"))
 ```
 
-# Split the data frame by Variable and pos_neg and export as text files
+# Split the data frame by chemical and mom_baby
 ```{r}
-export_folder <- "~/Documents/MWAS_home/pj_results/mummi_export"
-combined_df %>% 
-  split(list(.$Variable, .$pos_neg)) %>% 
+export_folder <- "~/Documents/MWAS_home/pj_result/mummi_exp"
+combined_df1 %>% 
+  split(list(.$Variable, .$mom_baby)) %>% 
   walk(~{
     # Remove last 5 characters of pos_neg variable
-    pos_neg_short <- substring(.x$pos_neg[1], 1, nchar(.x$pos_neg[1])-5)
+    mom_baby_short <- substring(.x$mom_baby[1], 1, nchar(.x$mom_baby[1])-5)
     
-    # Create file name with modified pos_neg variable
-    file_name <- paste0(.x$Variable[1], "_", pos_neg_short)
+    # Create file name with modified mom_baby variable
+    file_name <- paste0(.x$Variable[1], "_", mom_baby_short)
     
     # Select columns and write to file
-    df_to_write <- select(.x, 1:4)
+    df_to_write <- select(.x, 3:8)
     write_tsv(df_to_write, file.path(export_folder, paste0(file_name, ".txt")))
   })
 
 
 ```
-
-
-################################################################################
-Thresholds based on FDR 20% for each combination
-
-```{r}
-# Define the paths to the directories containing the CSV files
-path1 <- "~/Documents/MWAS_home/pj_results/pah_mom"
-path2 <- "~/Documents/MWAS_home/pj_results/pah_baby"
-
-# Get a list of all CSV files in both directories and their subdirectories
-csv_files <- c(list.files(path = path1, pattern = "\\_threshold.csv$", 
-                        recursive = TRUE, full.names = TRUE),
-               list.files(path = path2, pattern = "\\_threshold.csv$", 
-                        recursive = TRUE, full.names = TRUE))
-
-
-# Create a function to read and process each CSV file
-read_csv_file <- function(file) {
-  # Read the CSV file
-  df <- read_csv(file)
-  
-  # Keep only the desired variables
-  df <- df %>% select(1:4)
-  
-  # Create the pos_neg variable
-  pos_neg <- str_remove(basename(file), "\\.csv$")
-  
-  # Add the pos_neg variable to the data frame
-  df$pos_neg <- pos_neg
-  
-  return(df)
-}
-
-# Apply the function to each CSV file and combine them into a single data frame
-combined_df <- map_dfr(csv_files, read_csv_file)
-
-write_csv(combined_df, "~/Documents/MWAS_home/pj_results/mummi_p_val_thresholds.csv")
-```
-
-
 
 
