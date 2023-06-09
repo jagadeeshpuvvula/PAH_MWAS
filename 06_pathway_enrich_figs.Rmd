@@ -109,10 +109,38 @@ ggsave("~/Documents/MWAS_home/pj_result/pah_pathway.tiff",
 
 #Venn diagram
 ```{r}
-data<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")
+library(ggupset)
+data<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")|>
+  filter(mom_baby=="Maternal")|> 
+  select(name, chemical)
 
-data<- plot.mcg |> 
-  select(name, chemical, metabolism_cluster, mom_baby)
+#plot that doesnt provide set size
+data |>
+  group_by(name) |>
+  summarize(chemicals=list(chemical)) |>
+  ggplot(aes(x=chemicals)) +
+  theme_bw()+
+  geom_bar()+
+  scale_x_upset(order_by = "degree")
+  
+
+#### with the set size
+library(UpSetR)
+data %>%
+  distinct(name, chemical, .keep_all=TRUE) %>%
+  unnest(cols = chemical) %>%
+  mutate(GenreMember=1) %>%
+  pivot_wider(names_from = chemical, values_from = GenreMember, values_fill = list(GenreMember = 0)) %>%
+  as.data.frame() %>%
+  UpSetR::upset(sets = c("1-Hydroxypyrene", "sigma-LMWT-PAH", "9-Hydroxyphenanthrene", 
+                         "4-Hydroxyphenanthrene", "2,3-Hydroxyphenanthrene", "1-Hydroxyphenanthrene",
+                         "2-Hydroxyfluorene", "2-Hydroxynapthalene", "1-Hydroxynapthalene"), 
+                keep.order = TRUE, set_size.show=TRUE,
+                order.by = "freq", text.scale = 2, point.size = 3, line.size = 1.3,
+                set_size.scale_max = 30, mainbar.y.max=20,
+                mainbar.y.label="No.of Overlapping pathways \nacross chemicals", 
+                sets.x.label="Total no.of pathways \nper chemical")
+
 
 
 ```
