@@ -109,12 +109,13 @@ ggsave("~/Documents/MWAS_home/pj_result/pah_pathway.tiff",
 
 #Venn diagram
 ```{r}
-library(ggupset)
+
 data<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")|>
   filter(mom_baby=="Maternal")|> 
   select(name, chemical)
 
 #plot that doesnt provide set size
+library(ggupset)
 data |>
   group_by(name) |>
   summarize(chemicals=list(chemical)) |>
@@ -141,7 +142,8 @@ data %>%
                 mainbar.y.label="No.of Overlapping pathways \nacross chemicals", 
                 sets.x.label="Total no.of pathways \nper chemical")
 
-
+ggsave("~/Documents/MWAS_home/pj_result/pah_pathway_overlapp_mom.tiff", 
+       width = 12, height = 8, dpi=300)
 
 ```
 
