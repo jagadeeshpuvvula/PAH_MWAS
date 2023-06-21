@@ -6,21 +6,20 @@ output: pdf_document
 ---
 
 ```{r}
-library(tidyverse)
-library(janitor)
-library(haven)
-library(reshape2)
+library(pacman)
+pacman::p_load(tidyverse, janitor, haven, reshape2)
+path <- "~/Documents/MWAS_home/"
 ```
 
 
 ```{r}
 #questionniare data
-qn_dat<- read_csv("~/Documents/MWAS_home/pj_dat/qn_dat.csv")|>
+qn_dat<- read_csv(paste0(path, "pj_dat/qn_dat.csv"))|>
   mutate(stove = replace(stove, stove %in% c("NA_NA", "NA_lt_4hr"), NA))|>
   select(-regexer)
 
 #creatinine adjusted values.
-mom_pah_raw<- read_sas("/Users/jpuvvula/Documents/MWAS_home/PAH_update/pahmetabolitewide3.sas7bdat") |>
+mom_pah_raw<- read_sas(paste0(path, "PAH_update/pahmetabolitewide3.sas7bdat")) |>
   select(c(1,2,6,7,9,13,14,16,20,21,23,27,28,30,34,35,37,41,42,44,48,49,51,55,56,58))|>
   clean_names() |>
   rename(creat_mg_dl="creatinine", group="participant_id")|>
@@ -67,8 +66,8 @@ dat<- qn_dat_pah
 
 ```{r}
 #creatinine adjusted and log transformed values
-dat<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
-  select(c(1,4:11,19:24)) |>
+dat<- read_csv(paste0(path, "pj_dat/pah_fin_impu.csv")) |>
+  select(c(1,2:9,12:15,25,26)) |>
   mutate(stove = replace(stove, stove %in% c("NA_NA", "NA_lt_4hr"), NA))|>
   mutate(stove = case_when(
     grepl("Gas", stove, ignore.case = TRUE) ~ "Gas",
@@ -86,7 +85,9 @@ dat<- read_csv("~/Documents/MWAS_home/pj_dat/pah_fin_impu.csv") |>
   mutate(stove = if_else(is.na(stove), names(which.max(table(stove))), stove)) |>
   mutate(bbquse = if_else(is.na(bbquse), names(which.max(table(bbquse))), bbquse)) |>
   mutate(dist_majhw_cat = if_else(is.na(dist_majhw_cat), names(which.max(table(dist_majhw_cat))), dist_majhw_cat)) |>
-  mutate_if(is.character, as.factor)
+  mutate_if(is.character, as.factor) |>
+  rename(barbeque_use="bbquse", distance_to_highway="dist_majhw_cat", education="mom_edu_cat", income= "hh_inc_cat",
+         stove_use="stove", race="race_cat")
 
 ```
 
@@ -166,7 +167,7 @@ grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
       # check if the continuous variable is numeric
       if (is.numeric(data[[cont_var]])) {
         # conduct the t-test and Mann Whitney U test
-        t_test <- t.test(data[[cont_var]] ~ data[[cat_var]])
+        t_test <- t.test(data[[cont_var]] ~ data[[cat_var]], conf.level=0.95)
         u_test <- wilcox.test(data[[cont_var]] ~ data[[cat_var]], conf.int = TRUE)
         # extract the relevant information from the t-test output
         t_stat <- t_test$statistic
@@ -209,18 +210,20 @@ grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
 # Results
 x<- grp_diff_test_loop(dat, cont_vars = names(dat)[2:9], cat_vars = names(dat)[10:15])
 
-write_csv(x, "~/Documents/MWAS_home/pj_results/grp_differences/grp_diff_results.csv")
+write_csv(x, "~/Documents/MWAS_home/pj_result/grp_differences/grp_diff_results.csv")
 ```
 
 
 #combine differences summary and t-test results
 ```{r}
-dat<- read_csv("~/Documents/MWAS_home/pj_results/grp_differences/summary_tbl.csv")
-dat_stats<- read_csv("~/Documents/MWAS_home/pj_results/grp_differences/grp_diff_results.csv") |>
+dat<- read_csv("~/Documents/MWAS_home/pj_result/grp_differences/summary_tbl.csv") |>
+  mutate_at(vars(1:3), factor)
+dat_stats<- read_csv("~/Documents/MWAS_home/pj_result/grp_differences/grp_diff_results.csv") |>
   rename(pah = "cont_var", variable="cat_var")|>
   select(c(1,2,5,7,8)) |>
   mutate(percent_difference = round(abs(t_mean_grp_1 - t_mean_grp_2) / 
-           ((t_mean_grp_1 + t_mean_grp_2) / 2) * 100, 1))
+           ((t_mean_grp_1 + t_mean_grp_2) / 2) * 100, 1)) |>
+  mutate_at(vars(1,2), factor)
 
 # join group summaries with t-test results
 dat_viz<- left_join(dat, dat_stats, by=c("pah", "variable")) |>
@@ -241,7 +244,7 @@ dat_viz$variable<- factor(dat_viz$variable, levels = c("race", "education", "inc
 cbbPalette <- c( "black", "grey65")
 
 ggplot(dat_viz, aes(y = as.factor(new_level), x = median, xmin = pct_25, xmax = pct75)) + 
-    geom_pointrange(aes(col=factor(pct_diff)), 
+    geom_pointrange(aes(col=factor(p_sig)), 
                     position=position_dodge(width=1),size = 0.5)+
   scale_colour_manual(values=cbbPalette)+
   xlab("")+
@@ -264,13 +267,13 @@ ggplot(dat_viz, aes(y = as.factor(new_level), x = median, xmin = pct_25, xmax = 
               summarize(delta = paste0("x\u0305\u0305-Δ = ", 
                                        round(percent_difference, 2), "%"),
                         p_val = paste0("p=", round(t_p_val, 3))), 
-            aes(x = Inf, y = -Inf, label = paste(delta, p_val, sep = ", ")), 
+            aes(x = Inf, y = -Inf, label = paste(delta)), 
             hjust = 1.01, vjust = -0.5, size = 2.4, nudge_x = -0.5,
             nudge_y = -0.5, inherit.aes = FALSE)+
   guides(color = FALSE)
 
 
-ggsave("~/Documents/MWAS_home/pj_results/grp_differences/summary_plot.tiff", 
+ggsave("~/Documents/MWAS_home/pj_result/grp_differences/summary_plot.tiff", 
        width = 10,height = 7.3,
        dpi=300)
 ```
