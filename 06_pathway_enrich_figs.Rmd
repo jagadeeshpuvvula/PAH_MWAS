@@ -50,10 +50,10 @@ plot.mcg$metabolism_cluster <- ifelse(grepl("metabolism", plot.mcg$name, ignore.
 
 
 # Creating new variable to cluster y axis
-plot.mcg <- plot.mcg %>%
+plot.mcg <- plot.mcg |>
   mutate(group = case_when(
     grepl("Vitamin", name, ignore.case = TRUE) ~ "vit",
-    grepl("fatty acid|Arachidonic|Carnitine|Phytanic|Butanoate|Glycerophospholipid", name, ignore.case = TRUE) ~ "fatty",
+    grepl("fatty acid|Arachidonic|Carnitine|Phytanic|Butanoate|Glycerophospholipid|Linoleate", name, ignore.case = TRUE) ~ "fatty",
     grepl("steroid|androgen", name, ignore.case = TRUE) ~ "ster",
     grepl("porphyrin|Pyrimidine|Purine|Glyoxylate", name, ignore.case = TRUE) ~ "organic",
     grepl("Methionine|Glutamate|Glycine|Beta-Alanine|Arginine|Glutathione|Aspartate|Lysine|Tyrosine|Alanine|Tryptophan|Histidine",
@@ -107,16 +107,14 @@ ggsave("~/Documents/MWAS_home/pj_result/pah_pathway.tiff",
        width = 8, height = 10, dpi=300)
 ```
 
-#Venn diagram
+#Chemicals with overlapping pathways for mom and baby
 ```{r}
-
-data<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")|>
-  filter(mom_baby=="Maternal")|> 
-  select(name, chemical)
+data<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")
 
 #plot that doesnt provide set size
 library(ggupset)
-data |>
+data |> 
+  select(name, chemical) |>
   group_by(name) |>
   summarize(chemicals=list(chemical)) |>
   ggplot(aes(x=chemicals)) +
@@ -125,19 +123,43 @@ data |>
   scale_x_upset(order_by = "degree")
   
 
-#### with the set size
+#### Overlapping pathways for newborns
 library(UpSetR)
-data %>%
-  distinct(name, chemical, .keep_all=TRUE) %>%
-  unnest(cols = chemical) %>%
-  mutate(GenreMember=1) %>%
-  pivot_wider(names_from = chemical, values_from = GenreMember, values_fill = list(GenreMember = 0)) %>%
-  as.data.frame() %>%
+
+data|>
+  filter(mom_baby=="Newborn")|> 
+  select(name, chemical) |>
+  distinct(name, chemical, .keep_all=TRUE) |>
+  unnest(cols = chemical) |>
+  mutate(GenreMember=1) |>
+  pivot_wider(names_from = chemical, values_from = GenreMember, values_fill = list(GenreMember = 0)) |>
+  as.data.frame() |>
   UpSetR::upset(sets = c("1-Hydroxypyrene", "sigma-LMWT-PAH", "9-Hydroxyphenanthrene", 
                          "4-Hydroxyphenanthrene", "2,3-Hydroxyphenanthrene", "1-Hydroxyphenanthrene",
                          "2-Hydroxyfluorene", "2-Hydroxynapthalene", "1-Hydroxynapthalene"), 
                 keep.order = TRUE, set_size.show=TRUE,
-                order.by = "freq", text.scale = 2, point.size = 3, line.size = 1.3,
+                order.by = "freq", text.scale = 2, point.size = 5, line.size = 1.5,
+                set_size.scale_max = 15, mainbar.y.max=4,
+                mainbar.y.label="No.of Overlapping pathways \nacross chemicals", 
+                sets.x.label="Total no.of pathways \nper chemical")
+
+ggsave("~/Documents/MWAS_home/pj_result/pah_pathway_overlapp_newborn.tiff", 
+       width = 0.1, height = 0.15, dpi=300)
+
+
+data|>
+  filter(mom_baby=="Maternal")|> 
+  select(name, chemical) |>
+  distinct(name, chemical, .keep_all=TRUE) |>
+  unnest(cols = chemical) |>
+  mutate(GenreMember=1) |>
+  pivot_wider(names_from = chemical, values_from = GenreMember, values_fill = list(GenreMember = 0)) |>
+  as.data.frame() |>
+  UpSetR::upset(sets = c("1-Hydroxypyrene", "sigma-LMWT-PAH", "9-Hydroxyphenanthrene", 
+                         "4-Hydroxyphenanthrene", "2,3-Hydroxyphenanthrene", "1-Hydroxyphenanthrene",
+                         "2-Hydroxyfluorene", "2-Hydroxynapthalene", "1-Hydroxynapthalene"), 
+                keep.order = TRUE, set_size.show=TRUE,
+                order.by = "freq", text.scale = 2, point.size = 5, line.size = 1.5,
                 set_size.scale_max = 30, mainbar.y.max=20,
                 mainbar.y.label="No.of Overlapping pathways \nacross chemicals", 
                 sets.x.label="Total no.of pathways \nper chemical")
@@ -147,27 +169,55 @@ ggsave("~/Documents/MWAS_home/pj_result/pah_pathway_overlapp_mom.tiff",
 
 ```
 
-
-
-# Summary tables for publication text
+#overlapping pathways between mom and baby
 ```{r}
-#total pathways associated with PAH
-n_distinct(pathways$name)
-# significant number of pathways associated with PAH
-n_distinct(plot.mcg$name)
+data_mb<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")|>
+  select(mom_baby, name)
 
+data_mb |>
+  distinct(name, mom_baby, .keep_all=TRUE) |>
+  unnest(cols = mom_baby) |>
+  mutate(GenreMember=1) |>
+  pivot_wider(names_from = mom_baby, values_from = GenreMember, 
+              values_fill = list(GenreMember = 0)) |>
+  as.data.frame() |>
+  UpSetR::upset(sets = c("Newborn","Maternal"), 
+                keep.order = TRUE, set_size.show=TRUE,
+                order.by = "freq", text.scale = 2, point.size = 5, line.size = 1.5,
+                set_size.scale_max = 55, mainbar.y.max=36,
+                mainbar.y.label="No.of Overlapping pathways \nacross maternal and newborn's", 
+                sets.x.label="Total no.of pathways \nper chemical")
+
+ggsave("~/Documents/MWAS_home/pj_result/pathway_overlapp_mom_baby.tiff", 
+       width = 12, height =8, dpi=300)
+```
+
+
+#Narrating results
+```{r}
+#pathways per mom and baby
+pathways |>
+  filter(p_fisher < 0.05) |>
+  group_by(mom_baby) |>
+  summarise(unique_count = n_distinct(name))
+
+#overlapping categories
+x<-pathways |>
+  filter(p_fisher < 0.05) |>
+  filter(mom_baby %in% c("Maternal", "Newborn")) |>
+  group_by(name) |>
+  filter(n_distinct(mom_baby) == 2) |>
+  distinct(name) |>
+  ungroup()
+
+#list name of pathways by criteria
 x<-plot.mcg |>
-  group_by(fact_new, chemical) |>
-  summarise(n_unique_names = n_distinct(name),
-            uniq_pct = round((n_distinct(name)/54)*100,2))
+  filter(mom_baby=="Maternal" & chemical=="9-Hydroxyphenanthrene") |>
+  distinct(name)
 
 #times per baby_mom per pos_neg a pathway repeated
 y<-plot.mcg |>
-  group_by(name,fact_new) |>
-  summarise(times_repeat = n())
-
-z<-plot.mcg |>
-  group_by(chemical,fact_new) |>
+  group_by(name,mom_baby) |>
   summarise(times_repeat = n())
 ```
 
