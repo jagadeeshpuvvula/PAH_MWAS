@@ -1,0 +1,76 @@
+---
+title: "04.2_over_rep_analysis"
+author: "Puvvula"
+date: "2023-06-22"
+output: pdf_document
+---
+
+```{r}
+library(pacman)
+pacman::p_load(tidyverse, janitor, stringr, MetaboAnalystR, fitdistrplus, RJSONIO)
+```
+
+#CUSTOM ADDUCTS
+```{r}
+add.vec <- c("M+FA-H [1-]","M-H [1-]","2M-H [1-]","M-H+O [1-]","M(C13)-H [1-]",
+             "2M+FA-H [1-]","M-3H [3-]","M-2H [2-]","M+ACN-H [1-]",
+             "M+HCOO [1-]","M+CH3COO [1-]","M-H2O-H [1-]","M [1+]","M+H [1+]",
+             "M+2H [2+]","M+3H [3+]","M+H2O+H [1+]","M-H2O+H [1+]",
+             "M(C13)+H [1+]","M(C13)+2H [2+]","M(C13)+3H [3+]","M-NH3+H [1+]",
+             "M+ACN+H [1+]","M+ACN+2H [2+]","M+2ACN+2H [2+]","M+3ACN+2H [2+]",
+             "M+NH4 [1+]","M+H+NH4 [2+]","2M+H [1+]","2M+ACN+H [1+]")
+```
+
+#over representation analysis with multiple p-values
+```{r}
+runMummichog <- function(input_folder, output_folder, p_val_cutoff) {
+  # create object for storing data
+  mSet3 <- InitDataObjects("mass_all", "mummichog", FALSE)
+  
+  # set peak format
+  mSet3 <- SetPeakFormat(mSet3, "rmp")
+  mSet3 <- UpdateInstrumentParameters(mSet3, 5.0, "mixed", "no")
+  
+  # get a list of text files in the input folder
+  input_files <- list.files(input_folder, pattern = "\\.txt$", full.names = TRUE)
+  
+  # process each input file
+  for (input_file in input_files) {
+    # read the peak list data
+    mSet3 <- Read.PeakListData(mSet3, input_file)
+    mSet3 <- SanityCheckMummichogData(mSet3)
+    
+    # map selected adducts to current data
+    mSet3 <- Setup.AdductData(mSet3, add.vec)
+    mSet3 <- PerformAdductMapping(mSet3, add.mode="mixed")
+    
+    # perform mummichog algorithm using selected adducts, using version 2 of the mummichog algorithm
+    mSet3 <- SetPeakEnrichMethod(mSet3, algOpt="mum", version="v2")
+    mSet3 <- SetMummichogPval(mSet3, cutoff=p_val_cutoff) # pval
+    
+    # the next step takes three or four minutes to run
+    mSet3 <- PerformPSEA(mSet3, "hsa_mfn", "current", 3, 10000)
+    
+    # store the results as a data frame
+    mummi_results <- as.data.frame(mSet3$mummi.resmat)
+    
+    # generate output file path and name
+    output_file <- file.path(output_folder, paste0(tools::file_path_sans_ext(basename(input_file)), ".csv"))
+    
+    # save results as a CSV file
+    write.csv(mummi_results, file = output_file, row.names = T)
+    
+    # print the output file path for each processed file
+    cat("Processed file:", input_file, "Output file:", output_file, "\n")
+  }    
+}
+```
+
+# output folders: p_1 = 0.05; p_2 = 0.1; p_3 =0.5
+#to use this function change output folder and p-value each time
+```{r}
+runMummichog(input_folder= "~/Documents/MWAS_home/pj_result/mummi_exp/",
+             p_val_cutoff= 0.5,
+             output_folder= "~/Documents/MWAS_home/pj_result/mummi_imp/p_3/")
+```
+
