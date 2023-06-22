@@ -26,8 +26,9 @@ pathways<- dat |>
          name = "x") |>
   mutate(mom_baby = fct_recode(mom_baby,
                                "Maternal" = "mom",
-                               "Newborn" = "baby")) |>
-  unite(mb_thresh, mom_baby, p_cutoff, sep = " - ")
+                               "Newborn" = "baby"),
+         mb_thresh=paste(mom_baby, p_cutoff, sep = " - "))
+  
 
 #p_fisher = one-tailed Fisher Exact Test p-value (based on Gaussian hypergeometric probability distribution)
 #p_ease = EASE score (a conservative adjustment to the Fisher exact probability that weights significance in favor of themes supported by more hits) Expression Analysis Systematic Explorer
@@ -47,8 +48,6 @@ plot.mcg <- pathways |>
 #plot.mcg$fact_new <- factor(plot.mcg$fact_new, levels = c("baby-neg", "baby-pos", "mom-neg", "mom-pos"),labels = c("Newborn C18", "Newborn HILIC", "Maternal C18", "Maternal HILIC"))
 
 #########################################
-my_colors <- colorRampPalette(c("#F8766D", "#7CAE00"))(6)
-
 # Create a new column with the cluster labels
 plot.mcg$metabolism_cluster <- ifelse(grepl("metabolism", plot.mcg$name, ignore.case = TRUE), "metabolism",
                                       ifelse(grepl("biosynthesis", plot.mcg$name, ignore.case = TRUE),
@@ -76,6 +75,12 @@ plot.mcg$group<- factor(plot.mcg$group, levels = c("vit", "amino", "sug", "fatty
 
 #export results csv
 write_csv(plot.mcg, "~/Documents/MWAS_home/pj_result/plot_mcg_with_p_sensit.csv")
+```
+
+
+```{r}
+plot.mcg<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg_with_p_sensit.csv")
+my_colors <- colorRampPalette(c("#F8766D", "#7CAE00"))(7)
 
 # Reorder y-axis based on the cluster labels
 plot.mcg |>
