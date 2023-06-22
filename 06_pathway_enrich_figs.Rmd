@@ -10,14 +10,24 @@ library(pacman)
 pacman::p_load(tidyverse, janitor)
 ```
 
+#read and combine pathway enrichment results using multiple p-value thresholds
 ```{r}
-pathways<- read_csv("~/Documents/MWAS_home/pj_result/mummi_import_combined.csv") |>
+file_list <- list.files(path = "~/Documents/MWAS_home/pj_result/pathway_enrich_results/", 
+                        pattern = "mummi_import_combined.*\\.csv", full.names = TRUE)
+
+dat <- do.call(rbind, lapply(file_list, read.csv))
+```
+
+
+```{r}
+pathways<- dat |>
   clean_names()|>
-  rename(p_fisher = "fet",
-         name= "x") |>
+  rename(p_fisher = "fet", 
+         name = "x") |>
   mutate(mom_baby = fct_recode(mom_baby,
                                "Maternal" = "mom",
-                               "Newborn" = "baby"))
+                               "Newborn" = "baby")) |>
+  unite(mb_thresh, mom_baby, p_cutoff, sep = " - ")
 
 #p_fisher = one-tailed Fisher Exact Test p-value (based on Gaussian hypergeometric probability distribution)
 #p_ease = EASE score (a conservative adjustment to the Fisher exact probability that weights significance in favor of themes supported by more hits) Expression Analysis Systematic Explorer
@@ -65,7 +75,7 @@ plot.mcg <- plot.mcg |>
 plot.mcg$group<- factor(plot.mcg$group, levels = c("vit", "amino", "sug", "fatty", "ster", "organic"))
 
 #export results csv
-write_csv(plot.mcg, "~/Documents/MWAS_home/pj_result/plot_mcg.csv")
+write_csv(plot.mcg, "~/Documents/MWAS_home/pj_result/plot_mcg_with_p_sensit.csv")
 
 # Reorder y-axis based on the cluster labels
 plot.mcg |>
@@ -103,8 +113,8 @@ plot.mcg |>
              switch = "y", space = "free_y")+
   labs(fill = "% significant hits per pathway")
 
-ggsave("~/Documents/MWAS_home/pj_result/pah_pathway.tiff", 
-       width = 8, height = 10, dpi=300)
+ggsave("~/Documents/MWAS_home/pj_result/pah_pathway_senstiv.tiff", 
+       width = 18, height = 14, dpi=300)
 ```
 
 #Chemicals with overlapping pathways for mom and baby
@@ -191,6 +201,31 @@ data_mb |>
 ggsave("~/Documents/MWAS_home/pj_result/pathway_overlapp_mom_baby.tiff", 
        width = 12, height =8, dpi=300)
 ```
+
+#sensitivity overlapping
+```{r}
+data<- read_csv("~/Documents/MWAS_home/pj_result/plot_mcg.csv")|>
+  select(mb_thresh, name)
+
+data |>
+  distinct(name, mb_thresh, .keep_all=TRUE) |>
+  unnest(cols = mb_thresh) |>
+  mutate(GenreMember=1) |>
+  pivot_wider(names_from = mb_thresh, values_from = GenreMember, 
+              values_fill = list(GenreMember = 0)) |>
+  as.data.frame() |>
+  UpSetR::upset(sets = c("Maternal - FDR-BH","Maternal - P<0.05", "Maternal - p<0.1", "Maternal - p<0.5",
+                         "Newborn - FDR-BH","Newborn - P<0.05", "Newborn - p<0.1", "Newborn - p<0.5"), 
+                keep.order = TRUE, set_size.show=TRUE,
+                order.by = "freq", text.scale = 2, point.size = 5, line.size = 1.5,
+                set_size.scale_max = 55, mainbar.y.max=8,
+                mainbar.y.label="No.of Overlapping pathways \nby p-value thresholds \nin functional analysis", 
+                sets.x.label="Total no.of pathways \nper chemical")
+
+ggsave("~/Documents/MWAS_home/pj_result/pathway_overlapp_p_senst.tiff", 
+       width = 12, height =8, dpi=300)
+```
+
 
 
 #Narrating results

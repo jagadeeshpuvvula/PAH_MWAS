@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r}
-library(pacman)
+  library(pacman)
 pacman::p_load(tidyverse, janitor, readr)
 ```
 
@@ -47,10 +47,11 @@ combine_csv_files <- function(folder_location) {
 
 #merge data
 ```{r}
-combined_data <- combine_csv_files("~/Documents/MWAS_home/pj_result/mummi_imp/")
+combined_data <- combine_csv_files("~/Documents/MWAS_home/pj_result/mummi_imp/p_3")
+combined_data <- combined_data |> mutate(p_cutoff="p<0.5")
 
 #export data
-write_csv(combined_data, "~/Documents/MWAS_home/pj_result/mummi_import_combined.csv")
+write_csv(combined_data, "~/Documents/MWAS_home/pj_result/mummi_import_combined_p3.csv")
 ```
 
 
