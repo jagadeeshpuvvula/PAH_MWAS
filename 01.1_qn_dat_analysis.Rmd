@@ -157,7 +157,7 @@ x <- summary_tbl(dat, names(dat)[10:15], names(dat)[2:9])
 write_csv(x, "~/Documents/MWAS_home/pj_results/grp_differences/summary_tbl.csv")
 ```
 
-# Group difference testing
+# Group difference testing - linear model, t-test and whitney-U test
 ```{r}
 grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
   result_df <- data.frame()  # initialize an empty dataframe for storing results
@@ -169,6 +169,8 @@ grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
         # conduct the t-test and Mann Whitney U test
         t_test <- t.test(data[[cont_var]] ~ data[[cat_var]], conf.level=0.95)
         u_test <- wilcox.test(data[[cont_var]] ~ data[[cat_var]], conf.int = TRUE)
+        lm_model <- lm(data[[cont_var]] ~ data[[cat_var]])
+        
         # extract the relevant information from the t-test output
         t_stat <- t_test$statistic
         t_param <- t_test$parameter
@@ -176,11 +178,19 @@ grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
         t_conf_int <- paste(round(t_test$conf.int[c(1,2)], 2), collapse = " - ")
         t_estimate_1 <- t_test$estimate[1]
         t_estimate_2 <- t_test$estimate[2]
+        
         # extract the relevant information from the Mann Whitney U test output
         u_stat <- u_test$statistic
         u_p_val <- u_test$p.value
         u_conf_int <- paste(round(u_test$conf.int, 2), collapse = " - ")
         u_estimate <- u_test$estimate
+        
+        # extract the relevant information from the linear regression model
+        lm_coefficients <- summary(lm_model)$coefficients
+        lm_beta <- lm_coefficients[2]
+        lm_conf_int <- paste(round(confint(lm_model)[2, ], 2), collapse = " - ")
+        lm_p_val<- summary(lm_model)$coefficient[2,"Pr(>|t|)"]
+        
         # create a row for the result dataframe
         result_row <- data.frame(cat_var = cat_var,
                                  cont_var = cont_var,
@@ -193,7 +203,10 @@ grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
                                  u_stat = u_stat,
                                  u_p_val = u_p_val,
                                  u_conf_int = u_conf_int,
-                                 u_median_diff = round(u_estimate, 2))
+                                 u_median_diff = round(u_estimate, 2),
+                                 lm_beta = lm_beta,
+                                 lm_conf_int = paste(lm_conf_int),
+                                 lm_p_val= lm_p_val)
         # add the row to the result dataframe
         result_df <- rbind(result_df, result_row)
       } else {
@@ -207,6 +220,15 @@ grp_diff_test_loop <- function(data, cat_vars, cont_vars) {
 ```
 
 ```{r}
+#relevel variables - reference categories
+dat$distance_to_highway <- relevel(dat$distance_to_highway, ref = "gt_1mile")
+dat$education <- relevel(dat$education, ref = "bach-or-abv")
+dat$race <- relevel(dat$race, ref = "white")
+dat$income <- relevel(dat$income, ref = "abv_median")
+dat$stove_use <- relevel(dat$stove_use, ref = "Electric")
+dat$barbeque_use <- relevel(dat$barbeque_use, ref = "No")
+
+
 # Results
 x<- grp_diff_test_loop(dat, cont_vars = names(dat)[2:9], cat_vars = names(dat)[10:15])
 
@@ -220,7 +242,7 @@ dat<- read_csv("~/Documents/MWAS_home/pj_result/grp_differences/summary_tbl.csv"
   mutate_at(vars(1:3), factor)
 dat_stats<- read_csv("~/Documents/MWAS_home/pj_result/grp_differences/grp_diff_results.csv") |>
   rename(pah = "cont_var", variable="cat_var")|>
-  select(c(1,2,5,7,8)) |>
+  select(c(1,2,5,7,8,13,14,15)) |>
   mutate(percent_difference = round(abs(t_mean_grp_1 - t_mean_grp_2) / 
            ((t_mean_grp_1 + t_mean_grp_2) / 2) * 100, 1)) |>
   mutate_at(vars(1,2), factor)
@@ -229,7 +251,7 @@ dat_stats<- read_csv("~/Documents/MWAS_home/pj_result/grp_differences/grp_diff_r
 dat_viz<- left_join(dat, dat_stats, by=c("pah", "variable")) |>
   mutate(x_dummy= "1") |>
   mutate(new_level = paste(level, count, sep = "-")) |>
-  mutate(p_sig= if_else(t_p_val< 0.05, 1, 2),
+  mutate(p_sig= if_else(lm_p_val< 0.05, 1, 2),
          pct_diff=if_else(percent_difference >10, 1, 2))
 
 dat_viz$variable<- factor(dat_viz$variable, levels = c("race", "education", "income", 
