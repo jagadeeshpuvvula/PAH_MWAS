@@ -266,32 +266,34 @@ dat_viz$variable<- factor(dat_viz$variable, levels = c("race", "education", "inc
 cbbPalette <- c( "black", "grey65")
 
 ggplot(dat_viz, aes(y = as.factor(new_level), x = median, xmin = pct_25, xmax = pct75)) + 
-    geom_pointrange(aes(col=factor(p_sig)), 
-                    position=position_dodge(width=1),size = 0.5)+
-  scale_colour_manual(values=cbbPalette)+
-  xlab("")+
-  ylab("")+
-  theme_bw()+
-  theme(axis.line = element_line(colour = "black"),
-        axis.text = element_text(colour = "black", size = 8),
-        strip.background = element_rect(fill = "transparent", colour = NA),
-        strip.text = element_text(colour = "black", size = 8),
-        strip.text.x = element_text(colour = "black", size = 6.5))+
-  facet_grid(variable ~ 
-               factor(pah, levels = c("1-Hydroxynapthalene", "2-Hydroxynapthalene",
-                                      "2-Hydroxyfluorene","1-Hydroxyphenanthrene",
-                                      "2,3-Hydroxyphenanthrene","4-Hydroxyphenanthrene",
-                                      "9-Hydroxyphenanthrene", "1-Hydroxypyrene")),
-             scales = "free", switch = "x")+
-  scale_y_discrete(labels = function(x) gsub("-", "\nn= ", x) %>% paste0("", .))+
-  geom_text(data = dat_viz %>% 
-              group_by(variable, pah) %>%
-              summarize(delta = paste0("x\u0305\u0305-Δ = ", 
-                                       round(percent_difference, 2), "%"),
-                        p_val = paste0("p=", round(t_p_val, 3))), 
-            aes(x = Inf, y = -Inf, label = paste(delta)), 
-            hjust = 1.01, vjust = -0.5, size = 2.4, nudge_x = -0.5,
-            nudge_y = -0.5, inherit.aes = FALSE)+
+  geom_pointrange(aes(col = factor(p_sig)), position = position_dodge(width = 1), size = 0.5) +
+  scale_colour_manual(values = cbbPalette) +
+  xlab("") +
+  ylab("") +
+  theme_bw() +
+  theme(
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(colour = "black", size = 8),
+    strip.background = element_rect(fill = "transparent", colour = NA),
+    strip.text = element_text(colour = "black", size = 8),
+    strip.text.x = element_text(colour = "black", size = 6.5)
+  ) +
+  facet_grid(
+    variable ~ factor(pah, levels = c(
+      "1-Hydroxynapthalene", "2-Hydroxynapthalene", "2-Hydroxyfluorene",
+      "1-Hydroxyphenanthrene", "2,3-Hydroxyphenanthrene", "4-Hydroxyphenanthrene",
+      "9-Hydroxyphenanthrene", "1-Hydroxypyrene"
+    )),
+    scales = "free", switch = "x"
+  ) +
+  scale_y_discrete(labels = function(x) gsub("-", "\nn= ", x) %>% paste0("", .)) +
+  geom_text(
+    data = dat_viz %>%
+      group_by(variable, pah) %>%
+      mutate(beta = paste0("β=", round(lm_beta, 3)), ci = paste0("95% CI: ", lm_conf_int)),
+    aes(x = Inf, y = -Inf, label = paste(beta, ci, sep = "\n")),
+    hjust = 1.01, vjust = -0.1, size = 2.4, nudge_x = -0.2, nudge_y = -0.2, inherit.aes = FALSE
+  ) +
   guides(color = FALSE)
 
 
