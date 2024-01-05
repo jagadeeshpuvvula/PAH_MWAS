@@ -159,7 +159,7 @@ perform_PAH_MWAS <- function(feature_table, covariates, output_folder, mwas_file
   PAH_MWAS_result <- do.call(rbind, result_list) # combine all results into one data frame
   
   # Perform additional step: Calculate FDR cutoff for each variable
-  fdr_cutoff_values <- tapply(PAH_MWAS_result$`Pr(>|t|)`, PAH_MWAS_result$Variable, function(x) {
+  fdr_cutoff_values <- tapply(PAH_MWAS_result$FDR, PAH_MWAS_result$Variable, function(x) {
     sign_features <- sum(x < 0.2)
     count <- length(x)
     ((sign_features - 1) / (count - 1)) * 0.2
